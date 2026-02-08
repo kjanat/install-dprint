@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://www.schemastore.org/github-action.json
+#
+# Also check out the dprint check action, which gives a simple pass/fail result:
+# https://github.com/marketplace/actions/dprint-check-action
+---
+name: Install dprint
+description: A GitHub Action to install the dprint code formatter.
+author: kjanat
+
+inputs:
+  version:
+    description: The dprint version to install (e.g., "0.51.1"; defaults to "latest").
+    required: false
+    default: latest
+  path:
+    description: Path to the dprint configuration file (dprint.json, defaults to regular lookup behavior).
+    required: false
+    default: ""
+  args:
+    description: Additional arguments to pass to dprint.
+    required: false
+    default: ""
+
+outputs:
+  version:
+    description: Installed dprint version
+    value: "${{ steps.dprint.outputs.version }}"
+  location:
+    description: Path to the installed dprint binary
+    value: "${{ steps.dprint.outputs.location }}"
+
+runs:
+  using: composite
+  steps:
+    - name: dprint fmt
+      id: install-dprint
+      shell: bash
+      working-directory: "${{ github.action_path }}"
+      env:
+        DPRINT_VERSION: "${{ inputs.version }}"
+        DPRINT_CONFIG_PATH: "${{ inputs.config }}"
+        DPRINT_ARGS: "${{ inputs.args }}"
+      run: install.sh
