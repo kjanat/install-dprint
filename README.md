@@ -1,6 +1,6 @@
 # Install dprint
 
-A GitHub Action to install the [dprint](https://dprint.dev) code formatter.
+A GitHub Action to install the [dprint] code formatter.
 
 ## Usage
 
@@ -20,7 +20,34 @@ A GitHub Action to install the [dprint](https://dprint.dev) code formatter.
 
 ```yaml
 - uses: kjanat/install-dprint@v1
-- run: dprint check
+- run: dprint fmt
+```
+
+### Or combine it with [`autofix.ci`]
+
+```yaml
+name: autofix.ci
+on:
+  push: { branches: ["master"] }
+  pull_request:
+  workflow_call:
+permissions: { contents: read }
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: kjanat/install-dprint@v1
+        # Optionally install other dependencies here, if using the
+        # `exec` plugin.
+
+        # or update your plugins
+      - run: dprint config update
+
+        # autofix-ci will fail if the .github directory is touched
+      - run: dprint fmt --allow-no-files --diff --excludes ".github"
+
+      - uses: autofix-ci/action@v1
 ```
 
 ## Inputs
@@ -38,4 +65,10 @@ A GitHub Action to install the [dprint](https://dprint.dev) code formatter.
 
 ## License
 
-MIT
+[MIT]
+
+<!-- links -->
+
+[dprint]: https://dprint.dev "dprint.dev"
+[`autofix.ci`]: https://github.com/autofix-ci/action#readme "autofix-ci/action GitHub"
+[MIT]: https://github.com/kjanat/install-dprint/blob/master/LICENSE

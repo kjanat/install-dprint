@@ -5,7 +5,6 @@
 ---
 name: Install dprint
 description: A GitHub Action to install the dprint code formatter.
-
 author: kjanat
 branding: { icon: terminal, color: blue }
 
@@ -16,12 +15,8 @@ inputs:
     default: latest
 
 outputs:
-  version:
-    description: Installed dprint version
-    value: ${{ steps.dprint.outputs.version }}
-  location:
-    description: Path to the installed dprint binary
-    value: ${{ steps.dprint.outputs.location }}
+  version: { description: Installed dprint version, value: "${{ steps.dprint.outputs.version }}" }
+  location: { description: Path to the installed dprint binary, value: "${{ steps.dprint.outputs.location }}" }
 
 runs:
   using: composite
