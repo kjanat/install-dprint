@@ -26,4 +26,4 @@ runs:
       shell: bash
       working-directory: ${{ github.action_path }}
       env: { DPRINT_VERSION: "${{ inputs.version }}" }
-      run: install.sh
+      run: ./install.sh
