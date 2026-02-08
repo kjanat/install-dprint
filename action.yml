@@ -5,39 +5,30 @@
 ---
 name: Install dprint
 description: A GitHub Action to install the dprint code formatter.
+
 author: kjanat
+branding: { icon: terminal, color: blue }
 
 inputs:
   version:
     description: The dprint version to install (e.g., "0.51.1"; defaults to "latest").
     required: false
     default: latest
-  path:
-    description: Path to the dprint configuration file (dprint.json, defaults to regular lookup behavior).
-    required: false
-    default: ""
-  args:
-    description: Additional arguments to pass to dprint.
-    required: false
-    default: ""
 
 outputs:
   version:
     description: Installed dprint version
-    value: "${{ steps.dprint.outputs.version }}"
+    value: ${{ steps.dprint.outputs.version }}
   location:
     description: Path to the installed dprint binary
-    value: "${{ steps.dprint.outputs.location }}"
+    value: ${{ steps.dprint.outputs.location }}
 
 runs:
   using: composite
   steps:
-    - name: dprint fmt
-      id: install-dprint
+    - name: Install dprint
+      id: dprint
       shell: bash
-      working-directory: "${{ github.action_path }}"
-      env:
-        DPRINT_VERSION: "${{ inputs.version }}"
-        DPRINT_CONFIG_PATH: "${{ inputs.config }}"
-        DPRINT_ARGS: "${{ inputs.args }}"
+      working-directory: ${{ github.action_path }}
+      env: { DPRINT_VERSION: "${{ inputs.version }}" }
       run: install.sh
