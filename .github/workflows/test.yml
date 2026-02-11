@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
+---
+name: test
+
+on:
+  push: { branches: ["native-ts-action"] }
+  pull_request:
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: kjanat/install-dprint@native-ts-action
+
+      - run: dprint --version
+      - run: which dprint || where dprint
+        shell: bash
