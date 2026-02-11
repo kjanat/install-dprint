@@ -25,6 +25,9 @@ inputs:
 outputs:
   version: { description: Installed dprint version }
   location: { description: Path to the installed dprint binary }
+  cache-hit: { description: "Whether the dprint binary was restored from tool-cache" }
+  plugin-cache-hit: { description: "Whether the WASM plugin cache was restored (exact key match)" }
+  plugin-cache-key: { description: "The cache key used for WASM plugin cache" }
 
 runs:
   using: node24

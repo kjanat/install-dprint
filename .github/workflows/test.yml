@@ -10,14 +10,85 @@ on:
 permissions: { contents: read }
 
 jobs:
-  test:
+  install:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: kjanat/install-dprint@native-ts-action
+        id: install
 
-      - run: dprint --version
-      - run: which dprint || where dprint
+      - name: verify binary
+        run: dprint --version
+
+      - name: verify outputs
         shell: bash
+        run: |
+          echo "version=${{ steps.install.outputs.version }}"
+          echo "location=${{ steps.install.outputs.location }}"
+          echo "cache-hit=${{ steps.install.outputs.cache-hit }}"
+
+          test -n "${{ steps.install.outputs.version }}" || { echo "::error::version output empty"; exit 1; }
+          test -n "${{ steps.install.outputs.location }}" || { echo "::error::location output empty"; exit 1; }
+
+  cache-hit:
+    needs: install
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: kjanat/install-dprint@native-ts-action
+        id: install
+
+      - name: verify cache hit on second run
+        shell: bash
+        run: |
+          echo "cache-hit=${{ steps.install.outputs.cache-hit }}"
+          test "${{ steps.install.outputs.cache-hit }}" = "true" || echo "::warning::Expected cache-hit=true on second run"
+
+  plugin-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: kjanat/install-dprint@native-ts-action
+        id: install
+
+      - name: verify plugin cache outputs
+        shell: bash
+        run: |
+          echo "plugin-cache-hit=${{ steps.install.outputs.plugin-cache-hit }}"
+          echo "plugin-cache-key=${{ steps.install.outputs.plugin-cache-key }}"
+
+          # Config file exists in this repo, so key should be set
+          test -n "${{ steps.install.outputs.plugin-cache-key }}" || echo "::warning::plugin-cache-key empty (no config found?)"
+
+  no-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: kjanat/install-dprint@native-ts-action
+        id: install
+        with:
+          cache: "false"
+
+      - name: verify no cache outputs when disabled
+        shell: bash
+        run: |
+          echo "cache-hit=${{ steps.install.outputs.cache-hit }}"
+          echo "plugin-cache-hit=${{ steps.install.outputs.plugin-cache-hit }}"
+
+  specific-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: kjanat/install-dprint@native-ts-action
+        id: install
+        with:
+          version: "0.50.0"
+
+      - name: verify exact version
+        shell: bash
+        run: |
+          echo "version=${{ steps.install.outputs.version }}"
+          test "${{ steps.install.outputs.version }}" = "0.50.0" || { echo "::error::Expected 0.50.0, got ${{ steps.install.outputs.version }}"; exit 1; }

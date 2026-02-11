@@ -23,40 +23,41 @@ async function run(): Promise<void> {
 		core.info(`dprint ${version} ready at ${location}`);
 
 		// Plugin cache restore
-		if (cacheEnabled) {
-			const configPath = await findConfigFile(configPathInput);
+		if (!cacheEnabled) return;
 
-			if (configPath !== null) {
-				core.info(`Found config: ${configPath}`);
+		const configPath = await findConfigFile(configPathInput);
+		if (configPath === null) {
+			core.info("No dprint config found — skipping plugin cache");
+			return;
+		}
 
-				const { primaryKey, restoreKeys } = computeCacheKey(
-					configPath,
-					version,
-				);
+		core.info(`Found config: ${configPath}`);
 
-				core.saveState("PLUGIN_CACHE_KEY", primaryKey);
-				core.saveState("PLUGIN_CACHE_DIR", pluginCacheDir());
+		const { primaryKey, restoreKeys } = computeCacheKey(
+			configPath,
+			version,
+		);
 
-				const hitKey = await cache.restoreCache(
-					[pluginCacheDir()],
-					primaryKey,
-					restoreKeys,
-				);
+		core.saveState("PLUGIN_CACHE_KEY", primaryKey);
+		core.saveState("PLUGIN_CACHE_DIR", pluginCacheDir());
+		core.setOutput("plugin-cache-key", primaryKey);
 
-				if (hitKey !== undefined) {
-					core.info(`Plugin cache hit: ${hitKey}`);
-					// Exact match means no need to save in post step
-					if (hitKey === primaryKey) {
-						core.saveState("PLUGIN_CACHE_EXACT_HIT", "true");
-					}
-				} else {
-					core.info("Plugin cache miss");
-				}
-			} else {
-				core.info(
-					"No dprint config found — skipping plugin cache restore",
-				);
+		const hitKey = await cache.restoreCache(
+			[pluginCacheDir()],
+			primaryKey,
+			restoreKeys,
+		);
+
+		const isExactHit = hitKey === primaryKey;
+		core.setOutput("plugin-cache-hit", isExactHit);
+
+		if (hitKey !== undefined) {
+			core.info(`Plugin cache restored from: ${hitKey}`);
+			if (isExactHit) {
+				core.saveState("PLUGIN_CACHE_EXACT_HIT", "true");
 			}
+		} else {
+			core.info("Plugin cache miss");
 		}
 	} catch (error) {
 		if (error instanceof Error) {

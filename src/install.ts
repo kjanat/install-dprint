@@ -19,6 +19,7 @@ function installDir(): string {
 export async function installDprint(versionInput: string): Promise<{
 	version: string;
 	location: string;
+	cacheHit: boolean;
 }> {
 	const version = await resolveVersion(versionInput);
 	core.info(`Resolved dprint version: ${version}`);
@@ -33,7 +34,7 @@ export async function installDprint(versionInput: string): Promise<{
 	if (cachedDir) {
 		core.info(`Cache hit: dprint ${version} from tool-cache`);
 		const binaryPath = path.join(cachedDir, `dprint${ext}`);
-		return finalize(binaryPath, version);
+		return finalize(binaryPath, version, true);
 	}
 
 	core.info("Cache miss: downloading dprint");
@@ -54,14 +55,15 @@ export async function installDprint(versionInput: string): Promise<{
 	const toolDir = await tc.cacheDir(extractedDir, "dprint", version);
 	const binaryPath = path.join(toolDir, `dprint${ext}`);
 
-	return finalize(binaryPath, version);
+	return finalize(binaryPath, version, false);
 }
 
 /** Add to PATH, set outputs, verify binary works. */
 async function finalize(
 	binaryPath: string,
 	resolvedVersion: string,
-): Promise<{ version: string; location: string }> {
+	cacheHit: boolean,
+): Promise<{ version: string; location: string; cacheHit: boolean }> {
 	const binDir = path.dirname(binaryPath);
 	core.addPath(binDir);
 
@@ -78,8 +80,9 @@ async function finalize(
 
 	core.setOutput("version", actualVersion);
 	core.setOutput("location", binaryPath);
+	core.setOutput("cache-hit", cacheHit);
 
 	core.info(`dprint ${actualVersion} ready at ${binaryPath}`);
 
-	return { version: actualVersion, location: binaryPath };
+	return { version: actualVersion, location: binaryPath, cacheHit };
 }

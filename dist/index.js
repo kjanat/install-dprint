@@ -85383,7 +85383,7 @@ async function installDprint(versionInput) {
     if (cachedDir) {
         info(`Cache hit: dprint ${version} from tool-cache`);
         const binaryPath = external_node_path_namespaceObject.join(cachedDir, `dprint${ext}`);
-        return finalize(binaryPath, version);
+        return finalize(binaryPath, version, true);
     }
     info("Cache miss: downloading dprint");
     // Download the zip archive
@@ -85398,10 +85398,10 @@ async function installDprint(versionInput) {
     // Cache the extracted directory for future runs
     const toolDir = await cacheDir(extractedDir, "dprint", version);
     const binaryPath = external_node_path_namespaceObject.join(toolDir, `dprint${ext}`);
-    return finalize(binaryPath, version);
+    return finalize(binaryPath, version, false);
 }
 /** Add to PATH, set outputs, verify binary works. */
-async function finalize(binaryPath, resolvedVersion) {
+async function finalize(binaryPath, resolvedVersion, cacheHit) {
     const binDir = external_node_path_namespaceObject.dirname(binaryPath);
     addPath(binDir);
     // Verify it works
@@ -85416,8 +85416,9 @@ async function finalize(binaryPath, resolvedVersion) {
     actualVersion = actualVersion.trim().split(" ").pop() ?? actualVersion.trim();
     setOutput("version", actualVersion);
     setOutput("location", binaryPath);
+    setOutput("cache-hit", cacheHit);
     info(`dprint ${actualVersion} ready at ${binaryPath}`);
-    return { version: actualVersion, location: binaryPath };
+    return { version: actualVersion, location: binaryPath, cacheHit };
 }
 
 ;// CONCATENATED MODULE: ./src/config.ts
@@ -85505,28 +85506,29 @@ async function run() {
         const { version, location } = await installDprint(versionInput);
         info(`dprint ${version} ready at ${location}`);
         // Plugin cache restore
-        if (cacheEnabled) {
-            const configPath = await findConfigFile(configPathInput);
-            if (configPath !== null) {
-                info(`Found config: ${configPath}`);
-                const { primaryKey, restoreKeys } = computeCacheKey(configPath, version);
-                saveState("PLUGIN_CACHE_KEY", primaryKey);
-                saveState("PLUGIN_CACHE_DIR", pluginCacheDir());
-                const hitKey = await restoreCache([pluginCacheDir()], primaryKey, restoreKeys);
-                if (hitKey !== undefined) {
-                    info(`Plugin cache hit: ${hitKey}`);
-                    // Exact match means no need to save in post step
-                    if (hitKey === primaryKey) {
-                        saveState("PLUGIN_CACHE_EXACT_HIT", "true");
-                    }
-                }
-                else {
-                    info("Plugin cache miss");
-                }
+        if (!cacheEnabled)
+            return;
+        const configPath = await findConfigFile(configPathInput);
+        if (configPath === null) {
+            info("No dprint config found — skipping plugin cache");
+            return;
+        }
+        info(`Found config: ${configPath}`);
+        const { primaryKey, restoreKeys } = computeCacheKey(configPath, version);
+        saveState("PLUGIN_CACHE_KEY", primaryKey);
+        saveState("PLUGIN_CACHE_DIR", pluginCacheDir());
+        setOutput("plugin-cache-key", primaryKey);
+        const hitKey = await restoreCache([pluginCacheDir()], primaryKey, restoreKeys);
+        const isExactHit = hitKey === primaryKey;
+        setOutput("plugin-cache-hit", isExactHit);
+        if (hitKey !== undefined) {
+            info(`Plugin cache restored from: ${hitKey}`);
+            if (isExactHit) {
+                saveState("PLUGIN_CACHE_EXACT_HIT", "true");
             }
-            else {
-                info("No dprint config found — skipping plugin cache restore");
-            }
+        }
+        else {
+            info("Plugin cache miss");
         }
     }
     catch (error) {
