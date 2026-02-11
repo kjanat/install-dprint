@@ -13,6 +13,14 @@ inputs:
     description: The dprint version to install (e.g., "0.51.1"; defaults to "latest").
     required: false
     default: latest
+  cache:
+    description: Enable caching of dprint binary and WASM plugins (set to "false" to disable).
+    required: false
+    default: "true"
+  config-path:
+    description: Path or glob to dprint config file for plugin cache key (auto-detected if not set).
+    required: false
+    default: ""
 
 outputs:
   version: { description: Installed dprint version }
