@@ -1,9 +1,13 @@
 import * as core from "@actions/core";
+import { installDprint } from "./install.js";
 
 async function run(): Promise<void> {
 	try {
-		core.info("install-dprint: starting");
-		// TODO: implement install logic
+		const versionInput = core.getInput("version") || "latest";
+
+		const { version, location } = await installDprint(versionInput);
+
+		core.info(`dprint ${version} ready at ${location}`);
 	} catch (error) {
 		if (error instanceof Error) {
 			core.setFailed(error.message);
