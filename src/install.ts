@@ -26,9 +26,17 @@ export async function installDprint(versionInput: string): Promise<{
 	const target = await getTarget();
 	core.info(`Detected platform target: ${target}`);
 
-	const binDir = path.join(installDir(), "bin");
 	const ext = os.platform() === "win32" ? ".exe" : "";
-	const binaryPath = path.join(binDir, `dprint${ext}`);
+
+	// Check tool-cache first
+	const cachedDir = tc.find("dprint", version);
+	if (cachedDir) {
+		core.info(`Cache hit: dprint ${version} from tool-cache`);
+		const binaryPath = path.join(cachedDir, `dprint${ext}`);
+		return finalize(binaryPath, version);
+	}
+
+	core.info("Cache miss: downloading dprint");
 
 	// Download the zip archive
 	const url = `https://github.com/dprint/dprint/releases/download/${version}/dprint-${target}.zip`;
@@ -37,16 +45,25 @@ export async function installDprint(versionInput: string): Promise<{
 	const zipPath = await tc.downloadTool(url);
 	const extractedDir = await tc.extractZip(zipPath);
 
-	// Move extracted binary to install dir
-	await io.mkdirP(binDir);
-
-	const extractedBinary = path.join(extractedDir, `dprint${ext}`);
-	await io.cp(extractedBinary, binaryPath, { force: true });
-
 	// chmod +x on non-Windows
 	if (os.platform() !== "win32") {
-		await exec.exec("chmod", ["+x", binaryPath]);
+		await exec.exec("chmod", ["+x", path.join(extractedDir, `dprint${ext}`)]);
 	}
+
+	// Cache the extracted directory for future runs
+	const toolDir = await tc.cacheDir(extractedDir, "dprint", version);
+	const binaryPath = path.join(toolDir, `dprint${ext}`);
+
+	return finalize(binaryPath, version);
+}
+
+/** Add to PATH, set outputs, verify binary works. */
+async function finalize(
+	binaryPath: string,
+	resolvedVersion: string,
+): Promise<{ version: string; location: string }> {
+	const binDir = path.dirname(binaryPath);
+	core.addPath(binDir);
 
 	// Verify it works
 	let actualVersion = "";
@@ -59,14 +76,10 @@ export async function installDprint(versionInput: string): Promise<{
 	});
 	actualVersion = actualVersion.trim().split(" ").pop() ?? actualVersion.trim();
 
-	// Add to PATH
-	core.addPath(binDir);
-
-	// Set outputs
 	core.setOutput("version", actualVersion);
 	core.setOutput("location", binaryPath);
 
-	core.info(`dprint ${actualVersion} installed at ${binaryPath}`);
+	core.info(`dprint ${actualVersion} ready at ${binaryPath}`);
 
 	return { version: actualVersion, location: binaryPath };
 }
