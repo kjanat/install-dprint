@@ -4,7 +4,7 @@
 # https://github.com/marketplace/actions/dprint-check-action
 ---
 name: Install dprint
-description: A GitHub Action to install the dprint code formatter.
+description: A GitHub Action to install the dprint code formatter with caching.
 author: kjanat
 branding: { icon: terminal, color: blue }
 
@@ -15,15 +15,11 @@ inputs:
     default: latest
 
 outputs:
-  version: { description: Installed dprint version, value: "${{ steps.dprint.outputs.version }}" }
-  location: { description: Path to the installed dprint binary, value: "${{ steps.dprint.outputs.location }}" }
+  version: { description: Installed dprint version }
+  location: { description: Path to the installed dprint binary }
 
 runs:
-  using: composite
-  steps:
-    - name: Install dprint
-      id: dprint
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      env: { DPRINT_VERSION: "${{ inputs.version }}" }
-      run: ./install.sh
+  using: node24
+  main: dist/index.js
+  post: dist/post/index.js
+  post-if: success()
