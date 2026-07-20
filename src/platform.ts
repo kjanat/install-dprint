@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import * as os from "node:os";
+import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
@@ -30,10 +30,10 @@ async function isMusl(): Promise<boolean> {
 	} catch (err: unknown) {
 		// musl ldd exits non-zero on --version and prints to stderr
 		if (
-			err !== null &&
-			typeof err === "object" &&
-			"stderr" in err &&
-			typeof (err as { stderr: unknown }).stderr === "string"
+			err !== null
+			&& typeof err === "object"
+			&& "stderr" in err
+			&& typeof (err as { stderr: unknown }).stderr === "string"
 		) {
 			return (err as { stderr: string }).stderr.toLowerCase().includes("musl");
 		}

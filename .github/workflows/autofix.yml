@@ -16,9 +16,6 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./
 
-      - name: install shfmt
-        run: sudo apt -y install shfmt
-
       - run: dprint config update
       - run: dprint fmt --allow-no-files --diff --excludes ".github"
 

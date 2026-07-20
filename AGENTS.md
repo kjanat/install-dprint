@@ -1,72 +1,67 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-11\
-**Commit:** 94176cd\
-**Branch:** master
+**Updated:** 2026-07-20\
+**Branch:** native-ts-action
 
 ## OVERVIEW
 
-GitHub Action (composite) that installs the [dprint](https://dprint.dev) code
-formatter. Pure Bash + YAML, no build step, no dependencies.
+GitHub Action (native TypeScript, node24) that installs the
+[dprint](https://dprint.dev) code formatter and caches both the binary and its
+WASM plugin store. Bundled with ncc; `dist/` is committed (actions run it
+directly).
 
 ## STRUCTURE
 
 ```tree
 ./
-├── action.yml        # Action definition: inputs, outputs, composite step
-├── install.sh        # All logic lives here (~30 lines)
-├── .dprint.jsonc     # Formatting config (JSON, Markdown, YAML, Shell)
-├── .github/workflows/
-│   └── autofix.yml   # CI: self-tests action + auto-formats via autofix-ci
-└── .zed/             # Zed editor: uses dprint as external formatter
+├── action.yml        # Inputs/outputs, node24 main + post (post-if: always())
+├── src/
+│   ├── main.ts       # Orchestration: DPRINT_CACHE_DIR export, install, plugin cache restore, warmup
+│   ├── install.ts    # Binary install: tool-cache -> actions/cache -> download; post-save state
+│   ├── config.ts     # Config discovery ({.,}dprint.{jsonc,json}) + plugin cache key
+│   ├── warmup.ts     # Plugin pre-download, 60s x3 hang-detecting retry, best-effort
+│   ├── post.ts       # Saves binary + plugin caches; tolerates concurrent saves
+│   ├── version.ts    # "latest" -> tag via GitHub releases redirect
+│   └── platform.ts   # Target triple detection (incl. musl probe)
+├── dist/             # ncc bundles (committed); rebuild with `bun run build`
+└── .github/workflows/
+    ├── autofix.yml   # Self-tests action + auto-formats via autofix-ci
+    └── test.yml      # Cross-OS matrix: install, cache-hit, plugin-cache, no-cache, pinned version
 ```
 
 ## WHERE TO LOOK
 
-| Task                      | Location                        | Notes                                             |
-| ------------------------- | ------------------------------- | ------------------------------------------------- |
-| Change install logic      | `install.sh`                    | Single entry point, strict bash                   |
-| Modify action inputs/outs | `action.yml`                    | Composite action definition                       |
-| Adjust formatting rules   | `.dprint.jsonc`                 | Plugins: json, markdown, yaml, exec (shfmt)       |
-| Fix CI                    | `.github/workflows/autofix.yml` | Self-referential: uses `kjanat/install-dprint@v1` |
+| Task                       | Location             | Notes                                            |
+| -------------------------- | -------------------- | ------------------------------------------------ |
+| Change install/cache logic | `src/*.ts`           | Then `bun run build` and commit `dist/`          |
+| Modify action inputs/outs  | `action.yml`         | Keep README tables in sync                       |
+| Adjust formatting rules    | `.dprint.jsonc`      | Plugins: json, markdown, yaml, typescript, shfmt |
+| Fix CI                     | `.github/workflows/` | test.yml self-references `@native-ts-action`     |
+
+## CACHING MODEL
+
+- `DPRINT_CACHE_DIR` is exported by main so the cached plugin path and the path
+  dprint uses are identical on every OS.
+- Binary: tool-cache (self-hosted) plus `actions/cache` keyed
+  `dprint-bin-{os}-{arch}-{version}` (hosted runners).
+- Plugins: `actions/cache` keyed `dprint-plugins-{os}-{version}-{configHash}`;
+  the hash covers every discovered config file (deep search, `node_modules` and
+  `.git` excluded); restore-keys fall back per version, then per OS.
+- The post step runs on `always()` so failing format checks still save.
+- Warmup pre-downloads plugins on non-exact hits; only timeouts retry, real
+  failures warn once without failing the action.
 
 ## CONVENTIONS
 
-- **Tabs everywhere** -- all file types use tab indentation
-- **Formatter: dprint only** -- no prettier, eslint, or biome
-- **Shell**: `#!/usr/bin/env bash`, `set -euo pipefail`, `[[ ]]` conditionals,
-  `"${VAR}"` quoting, parameter expansion defaults `${VAR:-default}`
-- **YAML**: schema comment at top (`# yaml-language-server: $schema=...`),
-  compact flow for simple mappings (`{ icon: terminal, color: blue }`), 120-char
-  print width
-- **Markdown**: text wraps always, asterisks for emphasis
-- **Versioning**: semver tags (`v1.0.2`) + floating major tag (`v1`)
-- **Default branch**: `master`
-
-## ANTI-PATTERNS (THIS PROJECT)
-
-- No `.gitignore` -- editor configs (`.zed/`, `.claude/`) are committed
-- No tests -- no test framework, no test CI job
-- No shellcheck -- shell linting not configured
-- `shfmt` is an implicit CI dependency installed via `apt` in the workflow
+- **Tabs everywhere**, double-quoted strings in TS
+- **Formatter: dprint only**
+- **Versioning**: semver tags (`v2.0.0`) + floating major tag (`v1`)
+- **Build**: `bun run typecheck && bun run build` before committing src changes
 
 ## COMMANDS
 
 ```bash
-# Format (requires dprint + shfmt installed)
-dprint fmt
-
-# Format check (CI mode)
-dprint fmt --allow-no-files --diff --excludes ".github"
-
-# Update dprint plugins
-dprint config update
+bun run typecheck   # tsc --noEmit
+bun run build       # ncc -> dist/ and dist/post/
+dprint fmt          # format (requires dprint + shfmt)
 ```
-
-## NOTES
-
-- `install.sh` gracefully degrades outside GitHub Actions: `GITHUB_OUTPUT` and
-  `GITHUB_PATH` default to `/dev/null`
-- If dprint is already on `$PATH`, installation is skipped (emits `::notice::`)
-- CI excludes `.github/` directory from dprint formatting
-- The action self-tests by using `kjanat/install-dprint@v1` in its own CI

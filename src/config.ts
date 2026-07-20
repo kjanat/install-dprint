@@ -1,7 +1,7 @@
-import * as fs from "node:fs";
-import * as crypto from "node:crypto";
-import * as path from "node:path";
 import * as glob from "@actions/glob";
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 /** Config file names dprint recognizes, in priority order. */
 const CONFIG_NAMES = [
@@ -12,42 +12,49 @@ const CONFIG_NAMES = [
 ] as const;
 
 /**
- * Find the dprint config file in the workspace.
+ * Find dprint config files in the workspace.
  *
- * - If `customPath` is provided, uses it as a glob pattern.
- * - Otherwise, searches the workspace for known config file names.
+ * - If `customPath` is provided, uses it as a glob pattern and returns every
+ *   match.
+ * - Otherwise, deep-searches the whole workspace for known config file names
+ *   (skipping `node_modules` and `.git`) and returns every match, so a
+ *   monorepo's per-directory configs all feed the cache key.
  *
- * Returns the absolute path to the first matching file, or null.
+ * Returns absolute paths; the first entry is the primary config — the
+ * highest-priority name at the workspace root when present, otherwise the
+ * first match.
  */
-export async function findConfigFile(
-	customPath?: string,
-): Promise<string | null> {
+export async function findConfigFiles(customPath?: string): Promise<string[]> {
 	if (customPath !== undefined && customPath.trim() !== "") {
 		const globber = await glob.create(customPath, {
 			followSymbolicLinks: false,
 		});
-		const matches = await globber.glob();
-		return matches[0] ?? null;
+		return await globber.glob();
 	}
 
-	// Search workspace root for known config names
 	const workspace = process.env["GITHUB_WORKSPACE"] ?? process.cwd();
 
-	for (const name of CONFIG_NAMES) {
-		const candidate = path.join(workspace, name);
-		if (fs.existsSync(candidate)) {
-			return candidate;
-		}
-	}
-
-	// Deep search as fallback
-	const patterns = CONFIG_NAMES.map((n) => path.join(workspace, "**", n));
+	const patterns = [
+		...CONFIG_NAMES.map((n) => path.join(workspace, "**", n)),
+		`!${path.join(workspace, "**", "node_modules", "**")}`,
+		`!${path.join(workspace, "**", ".git", "**")}`,
+	];
 	const globber = await glob.create(patterns.join("\n"), {
 		followSymbolicLinks: false,
 	});
-	const matches = await globber.glob();
+	const matches = (await globber.glob()).sort();
 
-	return matches[0] ?? null;
+	for (const name of CONFIG_NAMES) {
+		const rootCandidate = path.join(workspace, name);
+		if (matches.includes(rootCandidate)) {
+			return [
+				rootCandidate,
+				...matches.filter((m) => m !== rootCandidate),
+			];
+		}
+	}
+
+	return matches;
 }
 
 /**
@@ -55,20 +62,25 @@ export async function findConfigFile(
  *
  * Key format: `dprint-plugins-{os}-{dprintVersion}-{configHash}`
  *
- * The config hash ensures plugins are re-downloaded when the config
- * changes (e.g., new plugin versions via `dprint config update`).
- * The dprint version is included because plugins may be version-sensitive.
+ * The hash covers every config file (path-sorted), so plugins are
+ * re-downloaded when any config changes (e.g. new plugin versions via
+ * `dprint config update`). The dprint version is included because plugins
+ * may be version-sensitive.
  */
 export function computeCacheKey(
-	configPath: string,
+	configPaths: readonly string[],
 	dprintVersion: string,
 ): { primaryKey: string; restoreKeys: string[] } {
-	const content = fs.readFileSync(configPath, "utf-8");
-	const hash = crypto.createHash("sha256").update(content).digest("hex");
+	const hash = crypto.createHash("sha256");
+	for (const configPath of [...configPaths].sort()) {
+		hash.update(configPath);
+		hash.update(fs.readFileSync(configPath, "utf-8"));
+	}
+	const digest = hash.digest("hex");
 
 	const runner = process.env["RUNNER_OS"] ?? process.platform;
 
-	const primaryKey = `dprint-plugins-${runner}-${dprintVersion}-${hash}`;
+	const primaryKey = `dprint-plugins-${runner}-${dprintVersion}-${digest}`;
 	const restoreKeys = [
 		`dprint-plugins-${runner}-${dprintVersion}-`,
 		`dprint-plugins-${runner}-`,

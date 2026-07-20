@@ -38717,10 +38717,6 @@ __nccwpck_require__.d(mappers_namespaceObject, {
   UserDelegationKey: () => (UserDelegationKey)
 });
 
-;// CONCATENATED MODULE: external "node:path"
-const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
-;// CONCATENATED MODULE: external "node:os"
-const external_node_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:os");
 ;// CONCATENATED MODULE: external "os"
 const external_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("os");
 ;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/utils.js
@@ -38730,7 +38726,7 @@ const external_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta
  * Sanitizes an input into a string so it can be passed into issueCommand safely
  * @param input input to sanitize into a string
  */
-function utils_toCommandValue(input) {
+function toCommandValue(input) {
     if (input === null || input === undefined) {
         return '';
     }
@@ -38837,13 +38833,13 @@ class Command {
     }
 }
 function escapeData(s) {
-    return utils_toCommandValue(s)
+    return toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A');
 }
 function escapeProperty(s) {
-    return utils_toCommandValue(s)
+    return toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A')
@@ -38863,7 +38859,7 @@ const external_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta
 
 
 
-function file_command_issueFileCommand(command, message) {
+function issueFileCommand(command, message) {
     const filePath = process.env[`GITHUB_${command}`];
     if (!filePath) {
         throw new Error(`Unable to find environment variable for file command ${command}`);
@@ -38871,13 +38867,13 @@ function file_command_issueFileCommand(command, message) {
     if (!external_fs_namespaceObject.existsSync(filePath)) {
         throw new Error(`Missing file at path: ${filePath}`);
     }
-    external_fs_namespaceObject.appendFileSync(filePath, `${utils_toCommandValue(message)}${external_os_namespaceObject.EOL}`, {
+    external_fs_namespaceObject.appendFileSync(filePath, `${toCommandValue(message)}${external_os_namespaceObject.EOL}`, {
         encoding: 'utf8'
     });
 }
-function file_command_prepareKeyValueMessage(key, value) {
+function prepareKeyValueMessage(key, value) {
     const delimiter = `ghadelimiter_${external_crypto_namespaceObject.randomUUID()}`;
-    const convertedValue = utils_toCommandValue(value);
+    const convertedValue = toCommandValue(value);
     // These should realistically never happen, but just in case someone finds a
     // way to exploit uuid generation let's not allow keys or values that contain
     // the delimiter.
@@ -41396,7 +41392,7 @@ function exportVariable(name, val) {
     if (filePath) {
         return issueFileCommand('ENV', prepareKeyValueMessage(name, val));
     }
-    issueCommand('set-env', { name }, convertedVal);
+    command_issueCommand('set-env', { name }, convertedVal);
 }
 /**
  * Registers a secret which will get masked from logs
@@ -41437,7 +41433,7 @@ function core_setSecret(secret) {
 function addPath(inputPath) {
     const filePath = process.env['GITHUB_PATH'] || '';
     if (filePath) {
-        file_command_issueFileCommand('PATH', inputPath);
+        issueFileCommand('PATH', inputPath);
     }
     else {
         command_issueCommand('add-path', {}, inputPath);
@@ -41511,10 +41507,10 @@ function getBooleanInput(name, options) {
 function setOutput(name, value) {
     const filePath = process.env['GITHUB_OUTPUT'] || '';
     if (filePath) {
-        return file_command_issueFileCommand('OUTPUT', file_command_prepareKeyValueMessage(name, value));
+        return issueFileCommand('OUTPUT', prepareKeyValueMessage(name, value));
     }
     process.stdout.write(external_os_namespaceObject.EOL);
-    command_issueCommand('set-output', { name }, utils_toCommandValue(value));
+    command_issueCommand('set-output', { name }, toCommandValue(value));
 }
 /**
  * Enables or disables the echoing of commands into stdout for the rest of the step.
@@ -41633,9 +41629,9 @@ function group(name, fn) {
 function saveState(name, value) {
     const filePath = process.env['GITHUB_STATE'] || '';
     if (filePath) {
-        return file_command_issueFileCommand('STATE', file_command_prepareKeyValueMessage(name, value));
+        return issueFileCommand('STATE', prepareKeyValueMessage(name, value));
     }
-    command_issueCommand('save-state', { name }, utils_toCommandValue(value));
+    command_issueCommand('save-state', { name }, toCommandValue(value));
 }
 /**
  * Gets the value of an state set by this action's main execution.
@@ -42890,6 +42886,8 @@ class AbortError extends Error {
     }
 }
 //# sourceMappingURL=AbortError.js.map
+;// CONCATENATED MODULE: external "node:os"
+const external_node_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:os");
 // EXTERNAL MODULE: external "node:util"
 var external_node_util_ = __nccwpck_require__(7975);
 ;// CONCATENATED MODULE: external "node:process"
@@ -84476,6 +84474,87 @@ function saveCacheV2(paths_1, key_1, options_1) {
     });
 }
 //# sourceMappingURL=cache.js.map
+;// CONCATENATED MODULE: external "node:path"
+const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+;// CONCATENATED MODULE: ./src/config.ts
+
+
+
+
+/** Config file names dprint recognizes, in priority order. */
+const CONFIG_NAMES = [
+    ".dprint.jsonc",
+    ".dprint.json",
+    "dprint.jsonc",
+    "dprint.json",
+];
+/**
+ * Find dprint config files in the workspace.
+ *
+ * - If `customPath` is provided, uses it as a glob pattern and returns every
+ *   match.
+ * - Otherwise, deep-searches the whole workspace for known config file names
+ *   (skipping `node_modules` and `.git`) and returns every match, so a
+ *   monorepo's per-directory configs all feed the cache key.
+ *
+ * Returns absolute paths; the first entry is the primary config — the
+ * highest-priority name at the workspace root when present, otherwise the
+ * first match.
+ */
+async function findConfigFiles(customPath) {
+    if (customPath !== undefined && customPath.trim() !== "") {
+        const globber = await create(customPath, {
+            followSymbolicLinks: false,
+        });
+        return await globber.glob();
+    }
+    const workspace = process.env["GITHUB_WORKSPACE"] ?? process.cwd();
+    const patterns = [
+        ...CONFIG_NAMES.map((n) => external_node_path_namespaceObject.join(workspace, "**", n)),
+        `!${external_node_path_namespaceObject.join(workspace, "**", "node_modules", "**")}`,
+        `!${external_node_path_namespaceObject.join(workspace, "**", ".git", "**")}`,
+    ];
+    const globber = await create(patterns.join("\n"), {
+        followSymbolicLinks: false,
+    });
+    const matches = (await globber.glob()).sort();
+    for (const name of CONFIG_NAMES) {
+        const rootCandidate = external_node_path_namespaceObject.join(workspace, name);
+        if (matches.includes(rootCandidate)) {
+            return [
+                rootCandidate,
+                ...matches.filter((m) => m !== rootCandidate),
+            ];
+        }
+    }
+    return matches;
+}
+/**
+ * Compute a deterministic cache key for dprint WASM plugins.
+ *
+ * Key format: `dprint-plugins-{os}-{dprintVersion}-{configHash}`
+ *
+ * The hash covers every config file (path-sorted), so plugins are
+ * re-downloaded when any config changes (e.g. new plugin versions via
+ * `dprint config update`). The dprint version is included because plugins
+ * may be version-sensitive.
+ */
+function computeCacheKey(configPaths, dprintVersion) {
+    const hash = external_node_crypto_.createHash("sha256");
+    for (const configPath of [...configPaths].sort()) {
+        hash.update(configPath);
+        hash.update(external_node_fs_namespaceObject.readFileSync(configPath, "utf-8"));
+    }
+    const digest = hash.digest("hex");
+    const runner = process.env["RUNNER_OS"] ?? process.platform;
+    const primaryKey = `dprint-plugins-${runner}-${dprintVersion}-${digest}`;
+    const restoreKeys = [
+        `dprint-plugins-${runner}-${dprintVersion}-`,
+        `dprint-plugins-${runner}-`,
+    ];
+    return { primaryKey, restoreKeys };
+}
+
 ;// CONCATENATED MODULE: ./node_modules/@actions/tool-cache/lib/manifest.js
 var manifest_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -85288,10 +85367,10 @@ async function isMusl() {
     }
     catch (err) {
         // musl ldd exits non-zero on --version and prints to stderr
-        if (err !== null &&
-            typeof err === "object" &&
-            "stderr" in err &&
-            typeof err.stderr === "string") {
+        if (err !== null
+            && typeof err === "object"
+            && "stderr" in err
+            && typeof err.stderr === "string") {
             return err.stderr.toLowerCase().includes("musl");
         }
         return false;
@@ -85366,42 +85445,62 @@ async function resolveVersion(input) {
 
 
 
+
+
+
 /** Where dprint installs to by default. */
 function installDir() {
-    return (process.env["DPRINT_INSTALL"] ??
-        path.join(os.homedir(), ".dprint"));
+    return (process.env["DPRINT_INSTALL"]
+        ?? external_node_path_namespaceObject.join(external_node_os_namespaceObject.homedir(), ".dprint"));
 }
 /** Download, extract, and install the dprint binary. Returns path to binary. */
-async function installDprint(versionInput) {
+async function installDprint(versionInput, cacheEnabled) {
     const version = await resolveVersion(versionInput);
     info(`Resolved dprint version: ${version}`);
     const target = await getTarget();
     info(`Detected platform target: ${target}`);
     const ext = external_node_os_namespaceObject.platform() === "win32" ? ".exe" : "";
-    // Check tool-cache first
+    // Tool-cache only persists on self-hosted runners; check it first anyway.
     const cachedDir = find("dprint", version);
     if (cachedDir) {
         info(`Cache hit: dprint ${version} from tool-cache`);
         const binaryPath = external_node_path_namespaceObject.join(cachedDir, `dprint${ext}`);
-        return finalize(binaryPath, version, true);
+        return finalize(binaryPath, true);
+    }
+    const binDir = external_node_path_namespaceObject.join(installDir(), "bin", version);
+    const binaryPath = external_node_path_namespaceObject.join(binDir, `dprint${ext}`);
+    const runner = process.env["RUNNER_OS"] ?? external_node_os_namespaceObject.platform();
+    const binaryKey = `dprint-bin-${runner}-${external_node_os_namespaceObject.arch()}-${version}`;
+    // Hosted runners get a fresh tool cache every job; actions/cache is what
+    // actually persists the binary across runs.
+    if (cacheEnabled) {
+        const hitKey = await restoreCache([binDir], binaryKey);
+        if (hitKey !== undefined && external_node_fs_namespaceObject.existsSync(binaryPath)) {
+            info(`Cache hit: dprint ${version} from actions/cache`);
+            return finalize(binaryPath, true);
+        }
     }
     info("Cache miss: downloading dprint");
-    // Download the zip archive
     const url = `https://github.com/dprint/dprint/releases/download/${version}/dprint-${target}.zip`;
     info(`Downloading: ${url}`);
     const zipPath = await downloadTool(url);
     const extractedDir = await extractZip(zipPath);
-    // chmod +x on non-Windows
+    const extractedBinary = external_node_path_namespaceObject.join(extractedDir, `dprint${ext}`);
     if (external_node_os_namespaceObject.platform() !== "win32") {
-        await exec_exec("chmod", ["+x", external_node_path_namespaceObject.join(extractedDir, `dprint${ext}`)]);
+        await exec_exec("chmod", ["+x", extractedBinary]);
     }
-    // Cache the extracted directory for future runs
-    const toolDir = await cacheDir(extractedDir, "dprint", version);
-    const binaryPath = external_node_path_namespaceObject.join(toolDir, `dprint${ext}`);
-    return finalize(binaryPath, version, false);
+    await mkdirP(binDir);
+    await io_cp(extractedBinary, binaryPath);
+    // Populate the tool cache too, so self-hosted runners skip the download.
+    await cacheDir(extractedDir, "dprint", version);
+    if (cacheEnabled) {
+        saveState("BIN_CACHE_KEY", binaryKey);
+        saveState("BIN_CACHE_DIR", binDir);
+    }
+    return finalize(binaryPath, false);
 }
 /** Add to PATH, set outputs, verify binary works. */
-async function finalize(binaryPath, resolvedVersion, cacheHit) {
+async function finalize(binaryPath, cacheHit) {
     const binDir = external_node_path_namespaceObject.dirname(binaryPath);
     addPath(binDir);
     // Verify it works
@@ -85421,69 +85520,56 @@ async function finalize(binaryPath, resolvedVersion, cacheHit) {
     return { version: actualVersion, location: binaryPath, cacheHit };
 }
 
-;// CONCATENATED MODULE: ./src/config.ts
+;// CONCATENATED MODULE: ./src/warmup.ts
 
 
 
 
-/** Config file names dprint recognizes, in priority order. */
-const CONFIG_NAMES = [
-    ".dprint.jsonc",
-    ".dprint.json",
-    "dprint.jsonc",
-    "dprint.json",
-];
-/**
- * Find the dprint config file in the workspace.
- *
- * - If `customPath` is provided, uses it as a glob pattern.
- * - Otherwise, searches the workspace for known config file names.
- *
- * Returns the absolute path to the first matching file, or null.
- */
-async function findConfigFile(customPath) {
-    if (customPath !== undefined && customPath.trim() !== "") {
-        const globber = await create(customPath, {
-            followSymbolicLinks: false,
-        });
-        const matches = await globber.glob();
-        return matches[0] ?? null;
-    }
-    // Search workspace root for known config names
-    const workspace = process.env["GITHUB_WORKSPACE"] ?? process.cwd();
-    for (const name of CONFIG_NAMES) {
-        const candidate = external_node_path_namespaceObject.join(workspace, name);
-        if (external_node_fs_namespaceObject.existsSync(candidate)) {
-            return candidate;
-        }
-    }
-    // Deep search as fallback
-    const patterns = CONFIG_NAMES.map((n) => external_node_path_namespaceObject.join(workspace, "**", n));
-    const globber = await create(patterns.join("\n"), {
-        followSymbolicLinks: false,
-    });
-    const matches = await globber.glob();
-    return matches[0] ?? null;
+const warmup_execFileAsync = (0,external_node_util_.promisify)(external_node_child_process_namespaceObject.execFile);
+const ATTEMPTS = 3;
+const TIMEOUT_MS = 60_000;
+/** Whether an execFile error is the timeout kill rather than a real failure. */
+function isTimeoutKill(error) {
+    if (error === null || typeof error !== "object")
+        return false;
+    const killed = "killed" in error && error.killed === true;
+    const signal = "signal" in error
+        && (error.signal === "SIGTERM" || error.signal === "SIGKILL");
+    return killed && signal;
+}
+function describe(error) {
+    return error instanceof Error ? error.message : String(error);
 }
 /**
- * Compute a deterministic cache key for dprint WASM plugins.
+ * Pre-resolve the config's WASM plugins so later dprint invocations run
+ * offline against the cached plugin store.
  *
- * Key format: `dprint-plugins-{os}-{dprintVersion}-{configHash}`
- *
- * The config hash ensures plugins are re-downloaded when the config
- * changes (e.g., new plugin versions via `dprint config update`).
- * The dprint version is included because plugins may be version-sensitive.
+ * Best-effort: plugins.dprint.dev occasionally stalls mid-download, so each
+ * attempt is bounded and only timeouts retry — real failures (bad config,
+ * unknown plugin) surface once as a warning without failing the action.
  */
-function computeCacheKey(configPath, dprintVersion) {
-    const content = external_node_fs_namespaceObject.readFileSync(configPath, "utf-8");
-    const hash = external_node_crypto_.createHash("sha256").update(content).digest("hex");
-    const runner = process.env["RUNNER_OS"] ?? process.platform;
-    const primaryKey = `dprint-plugins-${runner}-${dprintVersion}-${hash}`;
-    const restoreKeys = [
-        `dprint-plugins-${runner}-${dprintVersion}-`,
-        `dprint-plugins-${runner}-`,
-    ];
-    return { primaryKey, restoreKeys };
+async function warmupPlugins(binaryPath, configPath) {
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+        try {
+            await warmup_execFileAsync(binaryPath, ["output-file-paths", "--config", configPath], {
+                timeout: TIMEOUT_MS,
+                cwd: external_node_path_namespaceObject.dirname(configPath),
+                maxBuffer: 64 * 1024 * 1024,
+            });
+            info("Plugin warmup complete");
+            return true;
+        }
+        catch (error) {
+            if (isTimeoutKill(error)) {
+                info(`Plugin warmup hung (>${TIMEOUT_MS / 1000}s), attempt ${attempt}/${ATTEMPTS}`);
+                continue;
+            }
+            warning(`Plugin warmup failed: ${describe(error)}`);
+            return false;
+        }
+    }
+    warning(`Plugin warmup kept hanging after ${ATTEMPTS} attempts`);
+    return false;
 }
 
 ;// CONCATENATED MODULE: ./src/main.ts
@@ -85493,32 +85579,40 @@ function computeCacheKey(configPath, dprintVersion) {
 
 
 
-/** Default WASM plugin cache directory. */
+
+/** WASM plugin cache directory. */
 function pluginCacheDir() {
-    return (process.env["DPRINT_CACHE_DIR"] ??
-        external_node_path_namespaceObject.join(external_node_os_namespaceObject.homedir(), ".cache", "dprint"));
+    return (process.env["DPRINT_CACHE_DIR"]
+        ?? external_node_path_namespaceObject.join(external_node_os_namespaceObject.homedir(), ".cache", "dprint"));
 }
 async function run() {
     try {
         const versionInput = getInput("version") || "latest";
         const cacheEnabled = getInput("cache") !== "false";
+        const warmupEnabled = getInput("warmup") !== "false";
         const configPathInput = getInput("config-path") || undefined;
-        const { version, location } = await installDprint(versionInput);
+        // dprint's default cache dir differs per OS (~/.cache/dprint on Linux,
+        // ~/Library/Caches/dprint on macOS, %LOCALAPPDATA%\dprint on Windows);
+        // pinning it makes the cached path and the used path identical everywhere.
+        const cacheDir = pluginCacheDir();
+        exportVariable("DPRINT_CACHE_DIR", cacheDir);
+        const { version, location } = await installDprint(versionInput, cacheEnabled);
         info(`dprint ${version} ready at ${location}`);
         // Plugin cache restore
         if (!cacheEnabled)
             return;
-        const configPath = await findConfigFile(configPathInput);
-        if (configPath === null) {
-            info("No dprint config found — skipping plugin cache");
+        const configPaths = await findConfigFiles(configPathInput);
+        const primaryConfig = configPaths[0];
+        if (primaryConfig === undefined) {
+            info("No dprint config found, skipping plugin cache");
             return;
         }
-        info(`Found config: ${configPath}`);
-        const { primaryKey, restoreKeys } = computeCacheKey(configPath, version);
+        info(`Found config: ${configPaths.join(", ")}`);
+        const { primaryKey, restoreKeys } = computeCacheKey(configPaths, version);
         saveState("PLUGIN_CACHE_KEY", primaryKey);
-        saveState("PLUGIN_CACHE_DIR", pluginCacheDir());
+        saveState("PLUGIN_CACHE_DIR", cacheDir);
         setOutput("plugin-cache-key", primaryKey);
-        const hitKey = await restoreCache([pluginCacheDir()], primaryKey, restoreKeys);
+        const hitKey = await restoreCache([cacheDir], primaryKey, restoreKeys);
         const isExactHit = hitKey === primaryKey;
         setOutput("plugin-cache-hit", isExactHit);
         if (hitKey !== undefined) {
@@ -85529,6 +85623,12 @@ async function run() {
         }
         else {
             info("Plugin cache miss");
+        }
+        // On anything but an exact hit, pre-download the plugins now so the
+        // post step has a complete store to save even if later dprint steps
+        // fail (a failing format check still warms the next run).
+        if (warmupEnabled && !isExactHit) {
+            await warmupPlugins(location, primaryConfig);
         }
     }
     catch (error) {

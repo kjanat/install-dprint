@@ -85,10 +85,10 @@ jobs:
       - uses: kjanat/install-dprint@native-ts-action
         id: install
         with:
-          version: "0.50.0"
+          version: "0.55.1"
 
       - name: verify exact version
         shell: bash
         run: |
           echo "version=${{ steps.install.outputs.version }}"
-          test "${{ steps.install.outputs.version }}" = "0.50.0" || { echo "::error::Expected 0.50.0, got ${{ steps.install.outputs.version }}"; exit 1; }
+          test "${{ steps.install.outputs.version }}" = "0.55.1" || { echo "::error::Expected 0.55.1, got ${{ steps.install.outputs.version }}"; exit 1; }

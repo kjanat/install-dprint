@@ -8,19 +8,14 @@
 		"associations": [".rules", "*.md"],
 	},
 	"yaml": { "printWidth": 120 },
-	"exec": {
-		"cwd": "${configDir}",
-		"commands": [
-			{
-				"command": "shfmt -i 0 -ln bash -bn -ci --filename {{file_path}}",
-				"exts": ["sh", "bash"],
-			},
-		],
-	},
+	"typescript": {},
+	"shfmt": { "useTabs": true, "binaryNextLine": true, "switchCaseIndent": true },
+	"excludes": ["dist", "node_modules"],
 	"plugins": [
 		"https://plugins.dprint.dev/json-0.21.1.wasm",
 		"https://plugins.dprint.dev/markdown-0.21.1.wasm",
 		"https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
-		"https://plugins.dprint.dev/exec-0.6.0.json@a054130d458f124f9b5c91484833828950723a5af3f8ff2bd1523bd47b83b364",
+		"https://plugins.dprint.dev/typescript-0.96.1.wasm",
+		"https://plugins.dprint.dev/kjanat/shfmt-1.0.0.wasm",
 	],
 }

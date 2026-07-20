@@ -1,15 +1,16 @@
-import * as path from "node:path";
-import * as os from "node:os";
-import * as core from "@actions/core";
 import * as cache from "@actions/cache";
+import * as core from "@actions/core";
+import * as os from "node:os";
+import * as path from "node:path";
+import { computeCacheKey, findConfigFiles } from "./config.js";
 import { installDprint } from "./install.js";
-import { findConfigFile, computeCacheKey } from "./config.js";
+import { warmupPlugins } from "./warmup.js";
 
-/** Default WASM plugin cache directory. */
+/** WASM plugin cache directory. */
 function pluginCacheDir(): string {
 	return (
-		process.env["DPRINT_CACHE_DIR"] ??
-		path.join(os.homedir(), ".cache", "dprint")
+		process.env["DPRINT_CACHE_DIR"]
+			?? path.join(os.homedir(), ".cache", "dprint")
 	);
 }
 
@@ -17,33 +18,44 @@ async function run(): Promise<void> {
 	try {
 		const versionInput = core.getInput("version") || "latest";
 		const cacheEnabled = core.getInput("cache") !== "false";
+		const warmupEnabled = core.getInput("warmup") !== "false";
 		const configPathInput = core.getInput("config-path") || undefined;
 
-		const { version, location } = await installDprint(versionInput);
+		// dprint's default cache dir differs per OS (~/.cache/dprint on Linux,
+		// ~/Library/Caches/dprint on macOS, %LOCALAPPDATA%\dprint on Windows);
+		// pinning it makes the cached path and the used path identical everywhere.
+		const cacheDir = pluginCacheDir();
+		core.exportVariable("DPRINT_CACHE_DIR", cacheDir);
+
+		const { version, location } = await installDprint(
+			versionInput,
+			cacheEnabled,
+		);
 		core.info(`dprint ${version} ready at ${location}`);
 
 		// Plugin cache restore
 		if (!cacheEnabled) return;
 
-		const configPath = await findConfigFile(configPathInput);
-		if (configPath === null) {
-			core.info("No dprint config found — skipping plugin cache");
+		const configPaths = await findConfigFiles(configPathInput);
+		const primaryConfig = configPaths[0];
+		if (primaryConfig === undefined) {
+			core.info("No dprint config found, skipping plugin cache");
 			return;
 		}
 
-		core.info(`Found config: ${configPath}`);
+		core.info(`Found config: ${configPaths.join(", ")}`);
 
 		const { primaryKey, restoreKeys } = computeCacheKey(
-			configPath,
+			configPaths,
 			version,
 		);
 
 		core.saveState("PLUGIN_CACHE_KEY", primaryKey);
-		core.saveState("PLUGIN_CACHE_DIR", pluginCacheDir());
+		core.saveState("PLUGIN_CACHE_DIR", cacheDir);
 		core.setOutput("plugin-cache-key", primaryKey);
 
 		const hitKey = await cache.restoreCache(
-			[pluginCacheDir()],
+			[cacheDir],
 			primaryKey,
 			restoreKeys,
 		);
@@ -58,6 +70,13 @@ async function run(): Promise<void> {
 			}
 		} else {
 			core.info("Plugin cache miss");
+		}
+
+		// On anything but an exact hit, pre-download the plugins now so the
+		// post step has a complete store to save even if later dprint steps
+		// fail (a failing format check still warms the next run).
+		if (warmupEnabled && !isExactHit) {
+			await warmupPlugins(location, primaryConfig);
 		}
 	} catch (error) {
 		if (error instanceof Error) {

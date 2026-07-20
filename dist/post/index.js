@@ -84475,42 +84475,49 @@ function saveCacheV2(paths_1, key_1, options_1) {
 ;// CONCATENATED MODULE: ./src/post.ts
 
 
+/** Save a cache entry, tolerating a concurrent job having saved it already. */
+async function save(paths, key, label) {
+    info(`Saving ${label}: ${paths.join(", ")} -> ${key}`);
+    try {
+        await cache_saveCache(paths, key);
+        info(`${label} saved`);
+    }
+    catch (error) {
+        if (error instanceof Error && error.message.includes("already exists")) {
+            info(`${label} entry already exists`);
+        }
+        else {
+            throw error;
+        }
+    }
+}
 async function post() {
     try {
+        const binaryKey = getState("BIN_CACHE_KEY");
+        const binaryDir = getState("BIN_CACHE_DIR");
+        if (binaryKey !== "" && binaryDir !== "") {
+            await save([binaryDir], binaryKey, "Binary cache");
+        }
         const primaryKey = getState("PLUGIN_CACHE_KEY");
         const cacheDir = getState("PLUGIN_CACHE_DIR");
         const exactHit = getState("PLUGIN_CACHE_EXACT_HIT");
         if (primaryKey === "" || cacheDir === "") {
-            info("No plugin cache key saved — nothing to do");
+            info("No plugin cache key saved, nothing to do");
             return;
         }
         if (exactHit === "true") {
-            info("Plugin cache already up-to-date — skipping save");
+            info("Plugin cache already up-to-date, skipping save");
             return;
         }
-        info(`Saving plugin cache: ${cacheDir} → ${primaryKey}`);
-        try {
-            await cache_saveCache([cacheDir], primaryKey);
-            info("Plugin cache saved");
-        }
-        catch (error) {
-            // "cache already exists" is not an error — another job may have saved it
-            if (error instanceof Error &&
-                error.message.includes("already exists")) {
-                info("Plugin cache entry already exists");
-            }
-            else {
-                throw error;
-            }
-        }
+        await save([cacheDir], primaryKey, "Plugin cache");
     }
     catch (error) {
         // Post steps should warn, not fail the job
         if (error instanceof Error) {
-            warning(`Plugin cache save failed: ${error.message}`);
+            warning(`Cache save failed: ${error.message}`);
         }
         else {
-            warning(`Plugin cache save failed: ${String(error)}`);
+            warning(`Cache save failed: ${String(error)}`);
         }
     }
 }
