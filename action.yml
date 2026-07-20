@@ -4,26 +4,39 @@
 # https://github.com/marketplace/actions/dprint-check-action
 ---
 name: Install dprint
-description: A GitHub Action to install the dprint code formatter.
+description: A GitHub Action to install the dprint code formatter with caching.
 author: kjanat
 branding: { icon: terminal, color: blue }
 
 inputs:
   version:
-    description: The dprint version to install (e.g., "0.51.1"; defaults to "latest").
+    description: The dprint version to install (e.g., "0.55.2"; defaults to "latest").
     required: false
     default: latest
+  cache:
+    description: Enable caching of dprint binary and WASM plugins (set to "false" to disable).
+    required: false
+    default: "true"
+  config-path:
+    description: Path or glob to dprint config file(s) for the plugin cache key (auto-detected if not set; every glob match is hashed).
+    required: false
+    default: ""
+  warmup:
+    description: Pre-download WASM plugins after a cache miss so the post step saves a complete store (set to "false" to disable).
+    required: false
+    default: "true"
 
 outputs:
-  version: { description: Installed dprint version, value: "${{ steps.dprint.outputs.version }}" }
-  location: { description: Path to the installed dprint binary, value: "${{ steps.dprint.outputs.location }}" }
+  version: { description: Installed dprint version }
+  location: { description: Path to the installed dprint binary }
+  cache-hit: { description: "Whether the dprint binary was restored from tool-cache or actions/cache" }
+  plugin-cache-hit: { description: "Whether the WASM plugin cache was restored (exact key match)" }
+  plugin-cache-key: { description: "The cache key used for WASM plugin cache" }
 
 runs:
-  using: composite
-  steps:
-    - name: Install dprint
-      id: dprint
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      env: { DPRINT_VERSION: "${{ inputs.version }}" }
-      run: ./install.sh
+  using: node24
+  main: dist/index.js
+  post: dist/post/index.js
+  # A failing format check is the common CI outcome; the plugins it downloaded
+  # should still warm the next run.
+  post-if: always()
