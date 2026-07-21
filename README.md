@@ -1,26 +1,23 @@
 # Install dprint
 
-A GitHub Action to install the [dprint] code formatter, with caching for the
-binary and its WASM plugins.
+A GitHub Action to install the [dprint] code formatter, with caching for the binary and its WASM plugins.
 
 ## Usage
 
 ```yaml
-- uses: kjanat/install-dprint@v1
+uses: kjanat/install-dprint@v2
 ```
 
 ### Pin a specific version
 
 ```yaml
-- uses: kjanat/install-dprint@v1
-  with:
-    version: "0.55.2"
+{ uses: kjanat/install-dprint@v2, with: { version: 0.55.2 } }
 ```
 
 ### Run dprint after install
 
 ```yaml
-- uses: kjanat/install-dprint@v1
+- uses: kjanat/install-dprint@v2
 - run: dprint fmt
 ```
 
@@ -28,28 +25,30 @@ binary and its WASM plugins.
 
 ```yaml
 name: autofix.ci
-on:
-  push: { branches: ["master"] }
-  pull_request:
-  workflow_call:
+on: { push: { branches: ["master"] }, pull_request: null }
 permissions: { contents: read }
 jobs:
   autofix:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: kjanat/install-dprint@v1
-        # Optionally install other dependencies here, if using the
-        # `exec` plugin.
+    steps: [
+      uses: actions/checkout@v7,
+      uses: kjanat/install-dprint@v2,
+      # Optionally install other dependencies here, if using the `exec` plugin
+      # (or use exec's new `setupCommand` setting, see link in tip below).
 
-        # or update your plugins
-      - run: dprint config update
+      { run: dprint config update -yr, if: "${{ github.ref_name == 'master' }}" },
+      # or update your plugins:
 
-        # autofix-ci will fail if the .github directory is touched
-      - run: dprint fmt --allow-no-files --diff --excludes ".github"
+      run: dprint fmt --allow-no-files --diff --excludes .github,
+      # autofix-ci will fail if the .github directory is touched
 
-      - uses: autofix-ci/action@v1
+      uses: autofix-ci/action@v1,
+    ]
 ```
+
+> [!TIP]
+> Use dprint-plugin-exec's new `setupCommand` for e.g. installing a formatter binary to add it to PATH.\
+> More info: https://github.com/dprint/dprint-plugin-exec#configuration
 
 ## Inputs
 
@@ -60,11 +59,9 @@ jobs:
 | `config-path` | Path or glob to dprint config file(s) for the plugin cache key (auto-detected if not set) | `""`     |
 | `warmup`      | Pre-download WASM plugins after a cache miss so the post step saves a complete store      | `true`   |
 
-Config auto-detection deep-searches the workspace for `.dprint.jsonc`,
-`.dprint.json`, `dprint.jsonc`, `dprint.json` (skipping `node_modules` and
-`.git`) and hashes every match into the cache key, so a monorepo's per-directory
-configs all count; the root config is the primary. A `config-path` glob
-overrides detection.
+Config auto-detection deep-searches the workspace for `.dprint.jsonc`, `.dprint.json`, `dprint.jsonc`, `dprint.json`
+(skipping `node_modules` and `.git`) and hashes every match into the cache key, so a monorepo's per-directory configs
+all count; the root config is the primary. A `config-path` glob overrides detection.
 
 ## Outputs
 
@@ -78,14 +75,14 @@ overrides detection.
 
 ## Caching
 
-- The action exports `DPRINT_CACHE_DIR`, pinning dprint's plugin store to one
-  path on every OS, so the directory it caches is the directory dprint uses.
-- The plugin cache key hashes every matched config file plus the dprint version;
-  `restore-keys` fall back to the nearest older store.
-- The cache is saved in a post step that runs even when the job fails, so a
-  failing `dprint check` still warms the next run.
-- On a cache miss the action pre-downloads the plugins itself (bounded, with
-  hang-detecting retries), keeping later dprint steps offline.
+- The action exports `DPRINT_CACHE_DIR`, pinning dprint's plugin store to one path on every OS, so the directory it
+  caches is the directory dprint uses.
+- The plugin cache key hashes every matched config file plus the dprint version; `restore-keys` fall back to the nearest
+  older store.
+- The cache is saved in a post step that runs even when the job fails, so a failing `dprint check` still warms the next
+  run.
+- On a cache miss the action pre-downloads the plugins itself (bounded, with hang-detecting retries), keeping later
+  dprint steps offline.
 
 ## License
 
@@ -96,3 +93,5 @@ overrides detection.
 [dprint]: https://dprint.dev "dprint.dev"
 [`autofix.ci`]: https://github.com/autofix-ci/action#readme "autofix-ci/action GitHub"
 [MIT]: https://github.com/kjanat/install-dprint/blob/master/LICENSE
+
+<!-- markdownlint-disable-file MD013 MD034 -->

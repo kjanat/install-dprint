@@ -6,28 +6,36 @@
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
-		"build": "ncc build src/main.ts -o dist && ncc build src/post.ts -o dist/post",
+		"autofix": "run --keep-going --sequential dprint:cfg:update dprint:autofix pkgMgr",
+		"bd": "run build",
+		"build": "tsdown",
+		"dprint:autofix": "dprint fmt --allow-no-files --diff --excludes .github",
+		"dprint:cfg:update": "if [[ \"${GITHUB_REF_NAME:-}\" = 'master' ]]; then dprint config update -yr; fi",
+		"lint": "biome check",
+		"pkgMgr": "bun pm pkg set packageManager=\"bun@$(bun --version)\"",
 		"typecheck": "tsc --noEmit"
 	},
-	"dependencies": {
-		"@actions/cache": "^6.0.0",
-		"@actions/core": "^3.0.0",
-		"@actions/exec": "^3.0.0",
-		"@actions/glob": "^0.6.1",
-		"@actions/http-client": "^4.0.0",
-		"@actions/io": "^3.0.2",
-		"@actions/tool-cache": "^4.0.0"
-	},
 	"devDependencies": {
-		"@types/node": "^25.2.3",
-		"@vercel/ncc": "^0.38.4",
-		"typescript": "^5.9.3"
+		"@actions/cache": "^6",
+		"@actions/core": "^3",
+		"@actions/exec": "^3",
+		"@actions/glob": "^0.7",
+		"@actions/http-client": "^4",
+		"@actions/io": "^3",
+		"@actions/tool-cache": "^4",
+		"@types/bun": "^1.3",
+		"@types/node": "^24",
+		"biome": "npm:@biomejs/biome@2.5.4",
+		"runner-run": "^0.20",
+		"tsdown": "^0.22.12",
+		"typescript": "^7"
 	},
 	"packageManager": "bun@1.3.14",
 	"engines": {
-		"node": ">=24, <25"
+		"node": "24"
 	},
 	"volta": {
-		"node": "24.13.1"
+		"node": "24.18.0",
+		"npm": "11.18.0"
 	}
 }

@@ -35,8 +35,6 @@ outputs:
 
 runs:
   using: node24
-  main: dist/index.js
-  post: dist/post/index.js
-  # A failing format check is the common CI outcome; the plugins it downloaded
-  # should still warm the next run.
-  post-if: always()
+  main: dist/main.mjs
+  post: dist/post.mjs
+  post-if: always() # A failing format check is the common CI outcome; the plugins it downloaded should still warm the next run.

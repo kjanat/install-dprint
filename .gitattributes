@@ -1,0 +1,3 @@
+.zed/settings.json linguist-language=jsonc
+bun.lock           linguist-generated      -diff
+dist/**            linguist-generated      -diff

@@ -1,8 +1,9 @@
 {
 	"compilerOptions": {
+		"lib": ["ESNext"],
 		"target": "ESNext",
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
+		"module": "preserve",
+		"moduleResolution": "bundler",
 		"esModuleInterop": true,
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
@@ -10,7 +11,12 @@
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
 		"resolveJsonModule": true,
-		"isolatedModules": true
+		"isolatedModules": true,
+		"allowImportingTsExtensions": true,
+		"allowJs": true,
+		"checkJs": true,
+		"types": ["*"]
 	},
-	"exclude": ["dist"]
+	"include": ["tsdown.config.ts", "./src/**/*.mjs", "./src/**/*.ts", "./tests/**/*.ts"],
+	"exclude": ["./dist"]
 }

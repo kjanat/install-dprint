@@ -5,10 +5,8 @@
 
 ## OVERVIEW
 
-GitHub Action (native TypeScript, node24) that installs the
-[dprint](https://dprint.dev) code formatter and caches both the binary and its
-WASM plugin store. Bundled with ncc; `dist/` is committed (actions run it
-directly).
+GitHub Action (native TypeScript, node24) that installs the [dprint](https://dprint.dev) code formatter and caches both
+the binary and its WASM plugin store. Bundled with tsdown; `dist/` is committed (actions run it directly).
 
 ## STRUCTURE
 
@@ -23,7 +21,7 @@ directly).
 │   ├── post.ts       # Saves binary + plugin caches; tolerates concurrent saves
 │   ├── version.ts    # "latest" -> tag via GitHub releases redirect
 │   └── platform.ts   # Target triple detection (incl. musl probe)
-├── dist/             # ncc bundles (committed); rebuild with `bun run build`
+├── dist/             # tsdown bundles (committed); rebuild with `bun run build`
 └── .github/workflows/
     ├── autofix.yml   # Self-tests action + auto-formats via autofix-ci
     └── test.yml      # Cross-OS matrix: install, cache-hit, plugin-cache, no-cache, pinned version
@@ -36,20 +34,17 @@ directly).
 | Change install/cache logic | `src/*.ts`           | Then `bun run build` and commit `dist/`          |
 | Modify action inputs/outs  | `action.yml`         | Keep README tables in sync                       |
 | Adjust formatting rules    | `.dprint.jsonc`      | Plugins: json, markdown, yaml, typescript, shfmt |
-| Fix CI                     | `.github/workflows/` | test.yml self-references `@native-ts-action`     |
+| Fix CI                     | `.github/workflows/` | test.yml runs the checked-out action via `./`    |
 
 ## CACHING MODEL
 
-- `DPRINT_CACHE_DIR` is exported by main so the cached plugin path and the path
-  dprint uses are identical on every OS.
-- Binary: tool-cache (self-hosted) plus `actions/cache` keyed
-  `dprint-bin-{os}-{arch}-{version}` (hosted runners).
-- Plugins: `actions/cache` keyed `dprint-plugins-{os}-{version}-{configHash}`;
-  the hash covers every discovered config file (deep search, `node_modules` and
-  `.git` excluded); restore-keys fall back per version, then per OS.
+- `DPRINT_CACHE_DIR` is exported by main so the cached plugin path and the path dprint uses are identical on every OS.
+- Binary: tool-cache (self-hosted) plus `actions/cache` keyed `dprint-bin-{os}-{arch}-{version}` (hosted runners).
+- Plugins: `actions/cache` keyed `dprint-plugins-{os}-{version}-{configHash}`; the hash covers every discovered config
+  file (deep search, `node_modules` and `.git` excluded); restore-keys fall back per version, then per OS.
 - The post step runs on `always()` so failing format checks still save.
-- Warmup pre-downloads plugins on non-exact hits; only timeouts retry, real
-  failures warn once without failing the action.
+- Warmup pre-downloads plugins on non-exact hits; only timeouts retry, real failures warn once without failing the
+  action.
 
 ## CONVENTIONS
 
@@ -62,6 +57,8 @@ directly).
 
 ```bash
 bun run typecheck   # tsc --noEmit
-bun run build       # ncc -> dist/ and dist/post/
+bun run build       # tsdown -> dist/main.mjs and dist/post.mjs
 dprint fmt          # format (requires dprint + shfmt)
 ```
+
+<!-- markdownlint-disable-file -->

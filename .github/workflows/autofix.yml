@@ -1,22 +1,16 @@
 # yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
 ---
 name: autofix.ci
-
-on:
-  push: { branches: ["master"] }
-  pull_request:
-  workflow_call:
-
+on: { push: { branches: ["master"] }, pull_request: null, workflow_call: null }
 permissions: { contents: read }
-
 jobs:
   autofix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
       - uses: ./
-
-      - run: dprint config update
-      - run: dprint fmt --allow-no-files --diff --excludes ".github"
-
+      - run: run autofix
       - uses: autofix-ci/action@v1

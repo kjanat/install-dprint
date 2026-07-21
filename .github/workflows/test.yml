@@ -1,94 +1,91 @@
 # yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
 ---
 name: test
-
-on:
-  push: { branches: ["master"] }
-  pull_request:
-  workflow_dispatch:
-
+on: { push: { branches: [master], tags: [v*] }, pull_request: null, workflow_dispatch: null }
 permissions: { contents: read }
-
+env: { DPRINT_NON_LATEST: 0.55.0 }
+defaults: { run: { shell: pwsh } }
 jobs:
+  dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun test
+      - run: git diff --exit-code dist/
+
   install:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    strategy: { matrix: { os: [ubuntu-latest, macos-latest, windows-latest] } }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: kjanat/install-dprint@master
-        id: install
-
-      - name: verify binary
-        run: dprint --version
-
+      - uses: actions/checkout@v7
+      - { uses: ./, id: install }
+      - { name: verify binary, run: dprint --version }
       - name: verify outputs
-        shell: bash
+        env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
         run: |
-          echo "version=${{ steps.install.outputs.version }}"
-          echo "location=${{ steps.install.outputs.location }}"
-          echo "cache-hit=${{ steps.install.outputs.cache-hit }}"
-
-          test -n "${{ steps.install.outputs.version }}" || { echo "::error::version output empty"; exit 1; }
-          test -n "${{ steps.install.outputs.location }}" || { echo "::error::location output empty"; exit 1; }
+          $o = $env:OUTPUTS | ConvertFrom-Json
+          @"
+          version={0}
+          location={1}
+          cache-hit={2}
+          "@ -f $o.version, $o.location, $o.'cache-hit'
+          if ([string]::IsNullOrEmpty($o.version))  { "::error::version output empty";  exit 1 }
+          if ([string]::IsNullOrEmpty($o.location)) { "::error::location output empty"; exit 1 }
 
   cache-hit:
     needs: install
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    strategy: { matrix: { os: [ubuntu-latest, macos-latest, windows-latest] } }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: kjanat/install-dprint@master
-        id: install
-
+      - uses: actions/checkout@v7
+      - { uses: ./, id: install }
       - name: verify cache hit on second run
-        shell: bash
+        env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
         run: |
-          echo "cache-hit=${{ steps.install.outputs.cache-hit }}"
-          test "${{ steps.install.outputs.cache-hit }}" = "true" || echo "::warning::Expected cache-hit=true on second run"
+          $o = $env:OUTPUTS | ConvertFrom-Json; "cache-hit={0}" -f $o.'cache-hit'
+          if ($o.'cache-hit' -ne 'true') { "::warning::Expected cache-hit=true on second run" }
 
   plugin-cache:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: kjanat/install-dprint@master
-        id: install
-
+      - { uses: ./, id: install }
       - name: verify plugin cache outputs
-        shell: bash
+        env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
         run: |
-          echo "plugin-cache-hit=${{ steps.install.outputs.plugin-cache-hit }}"
-          echo "plugin-cache-key=${{ steps.install.outputs.plugin-cache-key }}"
+          $o = $env:OUTPUTS | ConvertFrom-Json
+          @"
+          plugin-cache-hit={0}
+          plugin-cache-key={1}
+          "@ -f $o.'plugin-cache-hit', $o.'plugin-cache-key'
 
           # Config file exists in this repo, so key should be set
-          test -n "${{ steps.install.outputs.plugin-cache-key }}" || echo "::warning::plugin-cache-key empty (no config found?)"
+          if ([string]::IsNullOrEmpty($o.'plugin-cache-key')) { "::warning::Expected plugin-cache-key non-empty (no config found?)" }
 
   no-cache:
     runs-on: ubuntu-latest
     steps:
-      - uses: kjanat/install-dprint@master
-        id: install
-        with:
-          cache: "false"
-
+      - uses: actions/checkout@v7
+      - { uses: ./, id: install, with: { cache: false } }
       - name: verify no cache outputs when disabled
-        shell: bash
-        run: |
-          echo "cache-hit=${{ steps.install.outputs.cache-hit }}"
-          echo "plugin-cache-hit=${{ steps.install.outputs.plugin-cache-hit }}"
+        env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
+        run: $o = $env:OUTPUTS | ConvertFrom-Json; "cache-hit={0}`nplugin-cache-hit={1}" -f $o.'cache-hit', $o.'plugin-cache-hit'
 
   specific-version:
     runs-on: ubuntu-latest
     steps:
-      - uses: kjanat/install-dprint@master
-        id: install
-        with:
-          version: "0.55.1"
-
+      - uses: actions/checkout@v7
+      - { uses: ./, id: install, with: { version: "${{ env.DPRINT_NON_LATEST }}" } }
       - name: verify exact version
-        shell: bash
+        env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
         run: |
-          echo "version=${{ steps.install.outputs.version }}"
-          test "${{ steps.install.outputs.version }}" = "0.55.1" || { echo "::error::Expected 0.55.1, got ${{ steps.install.outputs.version }}"; exit 1; }
+          $o = $env:OUTPUTS | ConvertFrom-Json
+          echo "version={0}" -f $o.version
+
+          if ($o.version -ne $env:DPRINT_NON_LATEST) {
+            "::error::Expected ${0}, got {1}" -f $env:DPRINT_NON_LATEST, $o.version
+            exit 1
+          }

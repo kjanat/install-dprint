@@ -2,20 +2,27 @@
 	"$schema": "https://dprint.dev/schemas/v0.json",
 	"useTabs": true,
 	"json": {},
-	"markdown": {
-		"textWrap": "always",
-		"emphasisKind": "asterisks",
-		"associations": [".rules", "*.md"],
+	"lineWidth": 120,
+	"yaml": { "printWidth": 160 },
+	"typescript": {
+		"module.sortExportDeclarations": "maintain",
+		"module.sortImportDeclarations": "maintain",
+		"importDeclaration.sortNamedImports": "maintain",
+		"importDeclaration.sortTypeOnlyImports": "none",
+		"exportDeclaration.sortNamedExports": "maintain",
+		"exportDeclaration.sortTypeOnlyExports": "none"
 	},
-	"yaml": { "printWidth": 120 },
-	"typescript": {},
-	"shfmt": { "useTabs": true, "binaryNextLine": true, "switchCaseIndent": true },
+	"shfmt": {
+		"useTabs": true,
+		"binaryNextLine": true,
+		"switchCaseIndent": true
+	},
 	"excludes": ["dist", "node_modules"],
 	"plugins": [
 		"https://plugins.dprint.dev/json-0.23.0.wasm",
 		"https://plugins.dprint.dev/markdown-0.22.1.wasm",
 		"https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
 		"https://plugins.dprint.dev/typescript-0.96.1.wasm",
-		"https://plugins.dprint.dev/kjanat/shfmt-1.0.0.wasm",
-	],
+		"https://plugins.dprint.dev/kjanat/shfmt-1.0.0.wasm"
+	]
 }

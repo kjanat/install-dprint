@@ -1,0 +1,25 @@
+import { defineConfig, type UserConfig } from "tsdown";
+
+const shared = {
+	minify: true,
+	target: "node24",
+	deps: {
+		alwaysBundle: [/.*/],
+		onlyBundle: false,
+		onlyImport: [],
+	},
+	outputOptions: {
+		codeSplitting: false,
+	},
+	onSuccess: "bun test",
+} satisfies UserConfig;
+
+export default defineConfig([{
+	...shared,
+	name: "main",
+	entry: { main: "./src/main.ts" },
+}, {
+	...shared,
+	name: "post",
+	entry: { post: "./src/post.ts" },
+}]);
