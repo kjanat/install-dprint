@@ -2,6 +2,21 @@
 
 A GitHub Action to install the [dprint] code formatter, with caching for the binary and its WASM plugins.
 
+## Why
+
+dprint compiles every WASM plugin once and keeps the result in its cache directory. Hosted runners start with an empty
+cache, so without this action every job recompiles every plugin from scratch. Numbers from a real repo
+([kjanat/kp2bw], 16 WASM plugins, Actions usage metrics Aug 2025 to Aug 2026):
+
+| Scenario                                  | autofix job duration           |
+| ----------------------------------------- | ------------------------------ |
+| `ubuntu-latest`, no plugin cache          | ~7.7 min average over 167 runs |
+| `ubuntu-latest`, with `install-dprint@v2` | 26 to 57 s (measured)          |
+| Workstation, cold cache, for scale        | 11 s wall, 67 s CPU            |
+
+The same compile that a multi-core workstation hides in 11 seconds serializes onto a 2-vCPU runner in every single job.
+Restoring the compiled plugin store turns that back into zero.
+
 ## Usage
 
 ```yaml
@@ -29,6 +44,8 @@ on: { push: { branches: ["master"] }, pull_request: null }
 permissions: { contents: read }
 jobs:
   autofix:
+    # An autofix commit pushed to a stacked PR rewrites a layer the merge queue coordinates
+    if: github.event.pull_request.stack == null
     runs-on: ubuntu-latest
     steps: [
       uses: actions/checkout@v7,
@@ -91,6 +108,7 @@ all count; the root config is the primary. A `config-path` glob overrides detect
 <!-- links -->
 
 [dprint]: https://dprint.dev "dprint.dev"
+[kjanat/kp2bw]: https://github.com/kjanat/kp2bw "KeePass to Bitwarden migration CLI"
 [`autofix.ci`]: https://github.com/autofix-ci/action#readme "autofix-ci/action GitHub"
 [MIT]: https://github.com/kjanat/install-dprint/blob/master/LICENSE
 
