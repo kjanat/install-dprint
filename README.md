@@ -5,17 +5,31 @@ A GitHub Action to install the [dprint] code formatter, with caching for the bin
 ## Why
 
 dprint compiles every WASM plugin once and keeps the result in its cache directory. Hosted runners start with an empty
-cache, so without this action every job recompiles every plugin from scratch. Numbers from a real repo
-([kjanat/kp2bw], 16 WASM plugins, Actions usage metrics Aug 2025 to Aug 2026):
+cache, so without this action every job recompiles every plugin from scratch.
 
-| Scenario                                  | autofix job duration           |
-| ----------------------------------------- | ------------------------------ |
-| `ubuntu-latest`, no plugin cache          | ~7.7 min average over 167 runs |
-| `ubuntu-latest`, with `install-dprint@v2` | 26 to 57 s (measured)          |
-| Workstation, cold cache, for scale        | 11 s wall, 67 s CPU            |
+Actual results from all 167 recorded `autofix` job attempts in [kjanat/kp2bw] through 2026-08-20, grouped by the
+`install-dprint` version recorded in each job (16 WASM plugins). [Commit `4fda405`] switched the workflow from v1 to
+v2:
 
-The same compile that a multi-core workstation hides in 11 seconds serializes onto a 2-vCPU runner in every single job.
-Restoring the compiled plugin store turns that back into zero.
+| Metric                     | `install-dprint@v1` | `install-dprint@v2` |
+| -------------------------- | ------------------- | ------------------- |
+| Jobs                       | 140                 | 27                  |
+| Mean job duration          | 8 min 31 s          | 31.6 s              |
+| Median job duration        | 30 s                | 28 s                |
+| p95 job duration           | 51 s                | 42 s                |
+| Maximum job duration       | 6 h 00 min 16 s     | 52 s                |
+| Jobs over five minutes     | 5                   | 0                   |
+| Jobs over one hour         | 3                   | 0                   |
+| Total observed runner time | 19 h 51 min 34 s    | 14 min 12 s         |
+
+The median barely moved because most cold compilations finished normally; the problem was the tail. Five v1 jobs stalled
+during plugin compilation for more than five minutes, including three that reached GitHub's six-hour limit. Those five
+jobs consumed 18 h 34 min 54 s, or 93.6% of all observed v1 runner time. None of the first 27 v2 jobs exceeded 52
+seconds.
+
+On a representative cache hit, `dprint fmt` itself dropped from 11.5 s with v1 to 976 ms with v2. The same cold compile
+that a multi-core workstation hides in 11 seconds can stall a 2-vCPU hosted runner; restoring the compiled plugin store
+removes it from the formatting step.
 
 ## Usage
 
@@ -111,6 +125,7 @@ all count; the root config is the primary. A `config-path` glob overrides detect
 
 [dprint]: https://dprint.dev "dprint.dev"
 [kjanat/kp2bw]: https://github.com/kjanat/kp2bw "KeePass to Bitwarden migration CLI"
+[Commit `4fda405`]: https://github.com/kjanat/kp2bw/commit/4fda4054e94141ebce97432dd5a825ac67f15b7f
 [`autofix.ci`]: https://github.com/autofix-ci/action#readme "autofix-ci/action GitHub"
 [MIT]: https://github.com/kjanat/install-dprint/blob/master/LICENSE
 
