@@ -26,7 +26,8 @@ uses: kjanat/install-dprint@v2
 ### Pin a specific version
 
 ```yaml
-{ uses: kjanat/install-dprint@v2, with: { version: 0.55.2 } }
+uses: kjanat/install-dprint@v2
+with: { version: 0.55.2 }
 ```
 
 ### Run dprint after install
@@ -40,27 +41,28 @@ uses: kjanat/install-dprint@v2
 
 ```yaml
 name: autofix.ci
-on: { push: { branches: ["master"] }, pull_request: null }
+on: { push: { branches: [master] }, pull_request: null }
 permissions: { contents: read }
 jobs:
   autofix:
     # An autofix commit pushed to a stacked PR rewrites a layer the merge queue coordinates
     if: github.event.pull_request.stack == null
     runs-on: ubuntu-latest
-    steps: [
-      uses: actions/checkout@v7,
-      uses: kjanat/install-dprint@v2,
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v7
+      - uses: kjanat/install-dprint@v2
       # Optionally install other dependencies here, if using the `exec` plugin
       # (or use exec's new `setupCommand` setting, see link in tip below).
 
-      { run: dprint config update -yr, if: "${{ github.ref_name == 'master' }}" },
-      # or update your plugins:
+      - run: dprint config update -yr
+        if: "${{ github.ref_name == 'master' }}"
+        # or update your plugins:
 
-      run: dprint fmt --allow-no-files --diff --excludes .github,
-      # autofix-ci will fail if the .github directory is touched
+      - run: dprint fmt --allow-no-files --diff --excludes .github
+        # autofix-ci will fail if the .github directory is touched
 
-      uses: autofix-ci/action@v1,
-    ]
+      - uses: autofix-ci/action@v1
 ```
 
 > [!TIP]
