@@ -21,7 +21,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - { uses: ./, id: install }
+      - { uses: ./, id: install, with: { cache-binary: true } }
       - { name: verify binary, run: dprint --version }
       - name: verify outputs
         env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
@@ -41,12 +41,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - { uses: ./, id: install }
+      - { uses: ./, id: install, with: { cache-binary: true } }
       - name: verify cache hit on second run
         env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
         run: |
           $o = $env:OUTPUTS | ConvertFrom-Json; "cache-hit={0}" -f $o.'cache-hit'
-          if ($o.'cache-hit' -ne 'true') { "::warning::Expected cache-hit=true on second run" }
+          if ($o.'cache-hit' -ne 'true') { throw "Expected cache-hit=true on second run" }
 
   plugin-cache:
     runs-on: ubuntu-latest
@@ -63,7 +63,8 @@ jobs:
           "@ -f $o.'plugin-cache-hit', $o.'plugin-cache-key'
 
           # Config file exists in this repo, so key should be set
-          if ([string]::IsNullOrEmpty($o.'plugin-cache-key')) { "::warning::Expected plugin-cache-key non-empty (no config found?)" }
+          if ([string]::IsNullOrEmpty($o.'plugin-cache-key')) { throw "Expected plugin-cache-key non-empty" }
+          if ($o.'cache-hit' -ne 'false') { throw "Expected binary caching disabled by default" }
 
   no-cache:
     runs-on: ubuntu-latest
@@ -72,13 +73,18 @@ jobs:
       - { uses: ./, id: install, with: { cache: false } }
       - name: verify no cache outputs when disabled
         env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
-        run: $o = $env:OUTPUTS | ConvertFrom-Json; "cache-hit={0}`nplugin-cache-hit={1}" -f $o.'cache-hit', $o.'plugin-cache-hit'
+        run: |
+          $o = $env:OUTPUTS | ConvertFrom-Json
+          "cache-hit={0}`nplugin-cache-hit={1}" -f $o.'cache-hit', $o.'plugin-cache-hit'
+          if ($o.'cache-hit' -ne 'false') { throw "Expected binary caching disabled" }
+          if ($o.'plugin-cache-hit' -ne 'false') { throw "Expected plugin caching disabled" }
+          if ($o.'plugin-cache-key' -ne '') { throw "Expected no plugin cache key" }
 
   specific-version:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - { uses: ./, id: install, with: { version: "${{ env.DPRINT_NON_LATEST }}" } }
+      - { uses: ./, id: install, with: { repository: dprint/dprint, version: "${{ env.DPRINT_NON_LATEST }}" } }
       - name: verify exact version
         env: { OUTPUTS: "${{ toJSON(steps.install.outputs) }}" }
         run: |

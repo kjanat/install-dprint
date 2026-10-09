@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { arch, homedir, platform } from "node:os";
+import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 import { env } from "node:process";
 import { restoreCache } from "@actions/cache";
@@ -8,6 +9,7 @@ import { exec } from "@actions/exec";
 import { cp, mkdirP } from "@actions/io";
 import { cacheDir, downloadTool, extractZip, find as tcFind } from "@actions/tool-cache";
 import { getTarget } from "./platform.ts";
+import { parseRepository, type ReleaseRepository } from "./repository.ts";
 import { resolveVersion } from "./version.ts";
 
 /** Where dprint installs to by default.
@@ -23,12 +25,16 @@ function installDir(): string {
  * @param    cacheEnabled  Whether to use actions/cache for the binary.
  * @returns                Installed version, binary path, and whether it was a cache hit.
  */
-export async function installDprint(versionInput: string, cacheEnabled: boolean): Promise<{
+export async function installDprint(
+	versionInput: string,
+	cacheEnabled: boolean,
+	repository: ReleaseRepository = parseRepository(),
+): Promise<{
 	version: string;
 	location: string;
 	cacheHit: boolean;
 }> {
-	const version = await resolveVersion(versionInput);
+	const version = await resolveVersion(versionInput, repository);
 	info(`Resolved dprint version: ${version}`);
 
 	const target = await getTarget();
@@ -37,17 +43,20 @@ export async function installDprint(versionInput: string, cacheEnabled: boolean)
 	const ext = platform() === "win32" ? ".exe" : "";
 
 	// Tool-cache only persists on self-hosted runners; check it first anyway.
-	const cachedDir = tcFind("dprint", version);
+	// tool-cache normalizes semver tags. Hash the exact tag into the tool name
+	// and use a fixed semver slot so arbitrary fork tags also remain distinct.
+	const tagKey = createHash("sha256").update(version).digest("hex");
+	const toolName = `dprint-${repository.cacheKey}-${target}-${tagKey}`;
+	const cachedDir = cacheEnabled ? tcFind(toolName, "0.0.0") : "";
 	if (cachedDir) {
 		info(`Cache hit: dprint ${version} from tool-cache`);
 		const binaryPath = join(cachedDir, `dprint${ext}`);
 		return finalize(binaryPath, true);
 	}
 
-	const binDir = join(installDir(), "bin", version);
+	const binDir = join(installDir(), "bin", repository.cacheKey, target, tagKey);
 	const binaryPath = join(binDir, `dprint${ext}`);
-	const runner = env["RUNNER_OS"] ?? platform();
-	const binaryKey = `dprint-bin-${runner}-${arch()}-${version}`;
+	const binaryKey = `dprint-bin-${repository.cacheKey}+${target}-${tagKey}`;
 
 	// Hosted runners get a fresh tool cache every job; actions/cache is what
 	// actually persists the binary across runs.
@@ -61,7 +70,9 @@ export async function installDprint(versionInput: string, cacheEnabled: boolean)
 
 	info("Cache miss: downloading dprint");
 
-	const url = `https://github.com/dprint/dprint/releases/download/${version}/dprint-${target}.zip`;
+	const url = `https://github.com/${repository.name}/releases/download/${
+		encodeURIComponent(version)
+	}/dprint-${target}.zip`;
 	info(`Downloading: ${url}`);
 
 	const zipPath = await downloadTool(url);
@@ -74,7 +85,7 @@ export async function installDprint(versionInput: string, cacheEnabled: boolean)
 	await cp(extractedBinary, binaryPath);
 
 	// Populate the tool cache too, so self-hosted runners skip the download.
-	await cacheDir(extractedDir, "dprint", version);
+	if (cacheEnabled) await cacheDir(extractedDir, toolName, "0.0.0");
 
 	if (cacheEnabled) {
 		saveState("BIN_CACHE_KEY", binaryKey);

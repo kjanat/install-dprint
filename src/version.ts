@@ -1,4 +1,9 @@
 import { HttpClient } from "@actions/http-client";
+import { parseRepository, type ReleaseRepository } from "./repository.ts";
+
+interface ReleaseClient {
+	get(url: string): Promise<{ message: { headers: { location?: string } } }>;
+}
 
 /** Resolve a version input to an actual version tag.
  *
@@ -9,24 +14,27 @@ import { HttpClient } from "@actions/http-client";
  * @returns          Resolved version string like `"0.55.2"`.
  * @throws  {Error}  If the latest version cannot be resolved from GitHub.
  */
-export async function resolveVersion(input: string): Promise<string> {
+export async function resolveVersion(
+	input: string,
+	repository: ReleaseRepository = parseRepository(),
+	http: ReleaseClient = new HttpClient("install-dprint-action", [], { allowRedirects: false }),
+): Promise<string> {
 	const trimmed = input.trim();
 	if (trimmed !== "" && trimmed.toLowerCase() !== "latest") return trimmed;
 
-	const http = new HttpClient("install-dprint-action", [], { allowRedirects: false });
-
 	/** GitHub redirects `/releases/latest` to `/releases/tag/<version>`.
 	 * Follow the redirect to extract the tag name without downloading anything. */
-	const response = await http.get("https://github.com/dprint/dprint/releases/latest");
+	const releaseUrl = `https://github.com/${repository.name}/releases`;
+	const response = await http.get(`${releaseUrl}/latest`);
 
 	const location = response.message.headers.location;
 	if (typeof location !== "string" || location.length === 0) {
 		throw new Error("Failed to resolve latest dprint version: no redirect from GitHub releases");
 	}
 
-	// Location: https://github.com/dprint/dprint/releases/tag/0.48.0
-	const tag = location.split("/").pop();
-	if (tag === undefined || tag.length === 0) throw new Error(`Failed to parse version tag from redirect: ${location}`);
-
-	return tag;
+	const tagPrefix = `${releaseUrl}/tag/`;
+	if (location.slice(0, tagPrefix.length).toLowerCase() !== tagPrefix || location.length === tagPrefix.length) {
+		throw new Error(`Failed to parse version tag from redirect: ${location}`);
+	}
+	return decodeURIComponent(location.slice(tagPrefix.length));
 }

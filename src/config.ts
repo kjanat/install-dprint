@@ -3,9 +3,17 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cwd, env, platform } from "node:process";
 import { create as globCreate } from "@actions/glob";
+import { parseRepository, type ReleaseRepository } from "./repository.ts";
 
 /** Config file names dprint recognizes, in priority order. */
-const CONFIG_NAMES = [".dprint.jsonc", ".dprint.json", "dprint.jsonc", "dprint.json"] as const;
+const CONFIG_NAMES = [
+	"dprint.json",
+	"dprint.jsonc",
+	".dprint.json",
+	".dprint.jsonc",
+	"dprint.toml",
+	".dprint.toml",
+] as const;
 
 /** Find dprint config files in the workspace.
  *
@@ -52,7 +60,7 @@ export async function findConfigFiles(customPath?: string): Promise<string[]> {
 
 /** Compute a deterministic cache key for dprint WASM plugins.
  *
- * Key format: `dprint-plugins-{os}-{dprintVersion}-{configHash}`
+ * Key format: `dprint-plugins-{repository}-{os}-{dprintVersion}-{configHash}`
  *
  * The hash covers every config file (path-sorted), so plugins are re-downloaded when any config changes
  * (e.g. new plugin versions via `dprint config update -yr`).
@@ -65,6 +73,7 @@ export async function findConfigFiles(customPath?: string): Promise<string[]> {
 export function computeCacheKey(
 	configPaths: readonly string[],
 	dprintVersion: string,
+	repository: ReleaseRepository = parseRepository(),
 ): { primaryKey: string; restoreKeys: string[] } {
 	const hash = createHash("sha256");
 	for (const configPath of [...configPaths].sort()) {
@@ -74,8 +83,9 @@ export function computeCacheKey(
 	const digest = hash.digest("hex");
 
 	const runner = env["RUNNER_OS"] ?? platform;
-	const primaryKey = `dprint-plugins-${runner}-${dprintVersion}-${digest}`;
-	const restoreKeys = [`dprint-plugins-${runner}-${dprintVersion}-`, `dprint-plugins-${runner}-`];
+	const prefix = `dprint-plugins-${repository.cacheKey}+${runner}`;
+	const primaryKey = `${prefix}-${dprintVersion}-${digest}`;
+	const restoreKeys = [`${prefix}-${dprintVersion}-`, `${prefix}-`];
 
 	return { primaryKey, restoreKeys };
 }

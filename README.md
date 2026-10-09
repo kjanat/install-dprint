@@ -85,16 +85,30 @@ jobs:
 
 ## Inputs
 
-| Name          | Description                                                                               | Default  |
-| ------------- | ----------------------------------------------------------------------------------------- | -------- |
-| `version`     | dprint version to install (e.g. `0.55.2`)                                                 | `latest` |
-| `cache`       | Cache the dprint binary and WASM plugins via `actions/cache`                              | `true`   |
-| `config-path` | Path or glob to dprint config file(s) for the plugin cache key (auto-detected if not set) | `""`     |
-| `warmup`      | Pre-download WASM plugins after a cache miss so the post step saves a complete store      | `true`   |
+| Name           | Description                                                                               | Default         |
+| -------------- | ----------------------------------------------------------------------------------------- | --------------- |
+| `version`      | dprint version to install (e.g. `0.55.2`)                                                 | `latest`        |
+| `repository`   | GitHub repository containing dprint releases (`owner/repo`)                               | `kjanat/dprint` |
+| `cache`        | Cache the dprint plugin store (`DPRINT_CACHE_DIR`)                                        | `true`          |
+| `cache-binary` | Cache the binary via tool-cache and `actions/cache`                                       | `false`         |
+| `config-path`  | Path or glob to dprint config file(s) for the plugin cache key (auto-detected if not set) | `""`            |
+| `warmup`       | Pre-download WASM plugins after a cache miss so the post step saves a complete store      | `true`          |
 
-Config auto-detection deep-searches the workspace for `.dprint.jsonc`, `.dprint.json`, `dprint.jsonc`, `dprint.json`
+Config auto-detection deep-searches the workspace for `dprint.json`, `dprint.jsonc`, `.dprint.json`, `.dprint.jsonc`,
+`dprint.toml`, `.dprint.toml` (in that root-config priority order)
 (skipping `node_modules` and `.git`) and hashes every match into the cache key, so a monorepo's per-directory configs
 all count; the root config is the primary. A `config-path` glob overrides detection.
+
+Releases come from `kjanat/dprint` by default. To install upstream dprint:
+
+```yaml
+- uses: kjanat/install-dprint@v2
+  with:
+    repository: dprint/dprint
+```
+
+`version` accepts an exact release tag, including fork and prerelease tags, without rewriting it. `latest` selects
+the repository's latest stable release. The repository must publish `dprint-{target}.zip` assets.
 
 ## Outputs
 
@@ -108,8 +122,21 @@ all count; the root config is the primary. A `config-path` glob overrides detect
 
 ## Caching
 
+Plugin-store caching is enabled by default; binary caching is disabled. The inputs are independent:
+
+```yaml
+- uses: kjanat/install-dprint@v2
+  with:
+    cache: true
+    cache-binary: false
+```
+
+`cache: false` disables only plugin caching. Set `cache-binary: true` to opt into binary caching.
+
 - The action exports `DPRINT_CACHE_DIR`, pinning dprint's plugin store to one path on every OS, so the directory it
   caches is the directory dprint uses.
+- Binary and plugin caches, tool-cache entries, and installation paths are scoped to the release repository.
+- An existing `DPRINT_CACHE_DIR` is used as the cache root; each repository gets its own subdirectory.
 - The plugin cache key hashes every matched config file plus the dprint version; `restore-keys` fall back to the nearest
   older store.
 - The cache is saved in a post step that runs even when the job fails, so a failing `dprint check` still warms the next

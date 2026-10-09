@@ -9,14 +9,22 @@ author: kjanat
 branding: { icon: terminal, color: blue }
 
 inputs:
+  repository:
+    description: GitHub repository containing dprint releases (owner/repo).
+    required: false
+    default: kjanat/dprint
   version:
     description: The dprint version to install (e.g., "0.55.2"; defaults to "latest").
     required: false
     default: latest
   cache:
-    description: Enable caching of dprint binary and WASM plugins (set to "false" to disable).
+    description: Cache the dprint plugin store (DPRINT_CACHE_DIR).
     required: false
     default: "true"
+  cache-binary:
+    description: Cache the dprint binary via tool-cache and actions/cache.
+    required: false
+    default: "false"
   config-path:
     description: Path or glob to dprint config file(s) for the plugin cache key (auto-detected if not set; every glob match is hashed).
     required: false
