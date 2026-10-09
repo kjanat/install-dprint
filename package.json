@@ -30,7 +30,7 @@
 		"tsdown": "^0.22.12",
 		"typescript": "^7"
 	},
-	"packageManager": "bun@1.4.0",
+	"packageManager": "bun@1.4.2",
 	"engines": {
 		"node": "24"
 	},
