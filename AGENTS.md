@@ -56,9 +56,9 @@ the binary and its WASM plugin store. Bundled with tsdown; `dist/` is committed 
 ## COMMANDS
 
 ```bash
-bun run typecheck   # tsc --noEmit
-bun run build       # tsdown -> dist/main.mjs and dist/post.mjs
-dprint fmt          # format (requires dprint + shfmt)
+bun run typecheck # tsc --noEmit
+bun run build     # tsdown -> dist/main.mjs and dist/post.mjs
+dprint fmt        # format (requires dprint + shfmt)
 ```
 
 <!-- markdownlint-disable-file -->
