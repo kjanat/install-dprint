@@ -15,7 +15,7 @@ function entrypointFor(phase: typeof phases[number]): string | undefined {
 
 describe("action metadata", () => {
 	test("defaults to the fork's releases", () => {
-		expect(action.inputs.repository.default).toBe("kjanat/dprint");
+		expect(action.inputs.repository.default).toBe("kjanat/kprint");
 	});
 	test("enables plugin caching and disables binary caching by default", () => {
 		expect(action.inputs.cache.default).toBe("true");

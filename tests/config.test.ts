@@ -28,7 +28,7 @@ test("discovers all six config names in the fork's root priority order", async (
 test("plugin primary and fallback keys cannot restore another repository's cache", () => {
 	const fork = computeCacheKey([], "0.56.1", parseRepository());
 	const upstream = computeCacheKey([], "0.56.1", parseRepository("dprint/dprint"));
-	const sameFork = computeCacheKey([], "0.56.1", parseRepository("KJANAT/DPRINT"));
+	const sameFork = computeCacheKey([], "0.56.1", parseRepository("KJANAT/KPRINT"));
 	expect(sameFork).toEqual(fork);
 	expect(fork.primaryKey).not.toBe(upstream.primaryKey);
 	for (const key of fork.restoreKeys) expect(upstream.primaryKey.startsWith(key)).toBe(false);

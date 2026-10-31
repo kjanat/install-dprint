@@ -23,18 +23,33 @@ export async function resolveVersion(
 	if (trimmed !== "" && trimmed.toLowerCase() !== "latest") return trimmed;
 
 	/** GitHub redirects `/releases/latest` to `/releases/tag/<version>`.
-	 * Follow the redirect to extract the tag name without downloading anything. */
-	const releaseUrl = `https://github.com/${repository.name}/releases`;
-	const response = await http.get(`${releaseUrl}/latest`);
+	 * Follow the redirect to extract the tag name without downloading anything.
+	 * A renamed repository first redirects to its new name's `/releases/latest`,
+	 * which is followed; the tag must then be the new name's. */
+	let releaseUrl = `https://github.com/${repository.name}/releases`;
+	for (let hop = 0; hop <= MAX_RENAME_REDIRECTS; hop++) {
+		const response = await http.get(`${releaseUrl}/latest`);
 
-	const location = response.message.headers.location;
-	if (typeof location !== "string" || location.length === 0) {
-		throw new Error("Failed to resolve latest dprint version: no redirect from GitHub releases");
-	}
+		const location = response.message.headers.location;
+		if (typeof location !== "string" || location.length === 0) {
+			throw new Error("Failed to resolve latest dprint version: no redirect from GitHub releases");
+		}
 
-	const tagPrefix = `${releaseUrl}/tag/`;
-	if (location.slice(0, tagPrefix.length).toLowerCase() !== tagPrefix || location.length === tagPrefix.length) {
-		throw new Error(`Failed to parse version tag from redirect: ${location}`);
+		const tagPrefix = `${releaseUrl}/tag/`;
+		if (location.slice(0, tagPrefix.length).toLowerCase() === tagPrefix && location.length > tagPrefix.length) {
+			return decodeURIComponent(location.slice(tagPrefix.length));
+		}
+		const renamed = RENAMED_LATEST.exec(location);
+		if (renamed?.[1] === undefined) {
+			throw new Error(`Failed to parse version tag from redirect: ${location}`);
+		}
+		releaseUrl = `https://github.com/${parseRepository(renamed[1]).name}/releases`;
 	}
-	return decodeURIComponent(location.slice(tagPrefix.length));
+	throw new Error(`Failed to resolve latest dprint version: more than ${MAX_RENAME_REDIRECTS} repository renames`);
 }
+
+/** How many times a repository may have been renamed (each a redirect). */
+const MAX_RENAME_REDIRECTS = 3;
+
+/** Where GitHub redirects a renamed repository's latest release. */
+const RENAMED_LATEST = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/releases\/latest$/iu;

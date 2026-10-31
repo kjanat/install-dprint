@@ -88,7 +88,7 @@ jobs:
 | Name           | Description                                                                               | Default         |
 | -------------- | ----------------------------------------------------------------------------------------- | --------------- |
 | `version`      | dprint version to install (e.g. `0.55.2`)                                                 | `latest`        |
-| `repository`   | GitHub repository containing dprint releases (`owner/repo`)                               | `kjanat/dprint` |
+| `repository`   | GitHub repository containing dprint releases (`owner/repo`)                               | `kjanat/kprint` |
 | `cache`        | Cache the dprint plugin store (`DPRINT_CACHE_DIR`)                                        | `true`          |
 | `cache-binary` | Cache the binary via tool-cache and `actions/cache`                                       | `false`         |
 | `config-path`  | Path or glob to dprint config file(s) for the plugin cache key (auto-detected if not set) | `""`            |
@@ -99,7 +99,7 @@ Config auto-detection deep-searches the workspace for `dprint.json`, `dprint.jso
 (skipping `node_modules` and `.git`) and hashes every match into the cache key, so a monorepo's per-directory configs
 all count; the root config is the primary. A `config-path` glob overrides detection.
 
-Releases come from `kjanat/dprint` by default. To install upstream dprint:
+Releases come from `kjanat/kprint` by default. To install upstream dprint:
 
 ```yaml
 - uses: kjanat/install-dprint@v2

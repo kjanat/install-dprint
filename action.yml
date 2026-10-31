@@ -12,7 +12,7 @@ inputs:
   repository:
     description: GitHub repository containing dprint releases (owner/repo).
     required: false
-    default: kjanat/dprint
+    default: kjanat/kprint
   version:
     description: The dprint version to install (e.g., "0.55.2"; defaults to "latest").
     required: false

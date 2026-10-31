@@ -28,6 +28,48 @@ describe("release version", () => {
 		}
 	});
 
+	test("follows a renamed repository to its latest release", async () => {
+		const requests: string[] = [];
+		const locations: Record<string, string> = {
+			"https://github.com/kjanat/dprint/releases/latest": "https://github.com/kjanat/kprint/releases/latest",
+			"https://github.com/kjanat/kprint/releases/latest": "https://github.com/kjanat/kprint/releases/tag/0.60.6-kjanat",
+		};
+		const http = {
+			get: async (url: string) => {
+				requests.push(url);
+				return { message: { headers: { location: locations[url] } } };
+			},
+		};
+		expect(await resolveVersion("latest", parseRepository("kjanat/dprint"), http)).toBe("0.60.6-kjanat");
+		expect(requests).toEqual(Object.keys(locations));
+	});
+
+	test("rejects a renamed repository's tag that is still the old name's", async () => {
+		const locations: Record<string, string> = {
+			"https://github.com/kjanat/dprint/releases/latest": "https://github.com/kjanat/kprint/releases/latest",
+			"https://github.com/kjanat/kprint/releases/latest": "https://github.com/kjanat/dprint/releases/tag/0.60.6-kjanat",
+		};
+		const http = { get: async (url: string) => ({ message: { headers: { location: locations[url] } } }) };
+		await expect(resolveVersion("latest", parseRepository("kjanat/dprint"), http)).rejects.toThrow(
+			"Failed to parse version tag",
+		);
+	});
+
+	test("stops following renames that go in circles", async () => {
+		const http = {
+			get: async (url: string) => ({
+				message: {
+					headers: {
+						location: url.includes("/a/")
+							? "https://github.com/kjanat/b/releases/latest"
+							: "https://github.com/kjanat/a/releases/latest",
+					},
+				},
+			}),
+		};
+		await expect(resolveVersion("latest", parseRepository("kjanat/a"), http)).rejects.toThrow("repository renames");
+	});
+
 	test("rejects redirects outside the selected repository", async () => {
 		const http = {
 			get: async () => ({ message: { headers: { location: "https://github.com/dprint/dprint/releases/tag/0.56.1" } } }),

@@ -4,8 +4,8 @@ import { PLUGIN_CACHE_ENVIRONMENT, parseRepository, resolvePluginCacheDirectory 
 
 describe("release repository", () => {
 	test("defaults to the fork and normalizes GitHub casing", () => {
-		expect(parseRepository().name).toBe("kjanat/dprint");
-		expect(parseRepository(" ").name).toBe("kjanat/dprint");
+		expect(parseRepository().name).toBe("kjanat/kprint");
+		expect(parseRepository(" ").name).toBe("kjanat/kprint");
 		expect(parseRepository(" DPRINT/Dprint ")).toEqual(parseRepository("dprint/dprint"));
 	});
 
@@ -46,6 +46,6 @@ describe("release repository", () => {
 			...inherited,
 			DPRINT_CACHE_DIR: join(root, "custom"),
 		});
-		expect(changed.directory).toBe(join(root, "custom", "kjanat_dprint"));
+		expect(changed.directory).toBe(join(root, "custom", "kjanat_kprint"));
 	});
 });

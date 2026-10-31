@@ -12,8 +12,8 @@ export interface ReleaseRepository {
 	readonly cacheKey: string;
 }
 
-export function parseRepository(input = "kjanat/dprint"): ReleaseRepository {
-	const name = input.trim().toLowerCase() || "kjanat/dprint";
+export function parseRepository(input = "kjanat/kprint"): ReleaseRepository {
+	const name = input.trim().toLowerCase() || "kjanat/kprint";
 	if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?\/[a-z\d][a-z\d._-]*$/u.test(name)) {
 		throw new Error(`Invalid repository: ${input}. Expected owner/repo.`);
 	}

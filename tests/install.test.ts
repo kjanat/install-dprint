@@ -1,7 +1,8 @@
 import { afterAll, expect, mock, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { platform, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import * as actionsCache from "@actions/cache";
 import * as core from "@actions/core";
 import type { ExecOptions } from "@actions/exec";
@@ -11,10 +12,15 @@ import { getTarget } from "../src/platform.ts";
 import { parseRepository } from "../src/repository.ts";
 
 const root = await mkdtemp(join(tmpdir(), "install-dprint-test-"));
+const ext = platform() === "win32" ? ".exe" : "";
+const binaryName = `dprint${ext}`;
+// a kprint archive holds only kprint, a dprint archive only dprint
 const extracted = join(root, "extracted");
-const binaryName = platform() === "win32" ? "dprint.exe" : "dprint";
+const extractedKprint = join(root, "extracted-kprint");
 await mkdir(extracted);
+await mkdir(extractedKprint);
 await writeFile(join(extracted, binaryName), "test binary");
+await writeFile(join(extractedKprint, `kprint${ext}`), "test binary");
 const previousEnvironment = new Map<string, string | undefined>();
 for (
 	const [name, value] of Object.entries({
@@ -68,9 +74,11 @@ mock.module("@actions/tool-cache", () => ({
 	...toolCache,
 	downloadTool: async (url: string) => {
 		downloads.push(url);
-		return join(root, "archive.zip");
+		// upstream dprint's releases have no kprint archive
+		if (url.includes("/dprint/dprint/") && url.includes("/kprint-")) throw new toolCache.HTTPError(404);
+		return join(root, url.includes("/kprint-") ? "kprint.zip" : "dprint.zip");
 	},
-	extractZip: async () => extracted,
+	extractZip: async (zipPath: string) => zipPath.endsWith("kprint.zip") ? extractedKprint : extracted,
 }));
 
 const { installDprint } = await import("../src/install.ts");
@@ -88,28 +96,34 @@ test("installs each repository and exact tag independently, then reuses its own 
 	expect(slashTag.cacheHit).toBe(false);
 	expect(new Set([fork.location, upstream.location, caseTag.location, slashTag.location]).size).toBe(4);
 	expect(downloads).toEqual([
-		`https://github.com/kjanat/dprint/releases/download/${tag}/dprint-${target}.zip`,
+		`https://github.com/kjanat/kprint/releases/download/${tag}/kprint-${target}.zip`,
+		`https://github.com/dprint/dprint/releases/download/${tag}/kprint-${target}.zip`,
 		`https://github.com/dprint/dprint/releases/download/${tag}/dprint-${target}.zip`,
-		`https://github.com/kjanat/dprint/releases/download/${tag.toUpperCase()}/dprint-${target}.zip`,
-		`https://github.com/kjanat/dprint/releases/download/fork%2Fpreview%2B1/dprint-${target}.zip`,
+		`https://github.com/kjanat/kprint/releases/download/${tag.toUpperCase()}/kprint-${target}.zip`,
+		`https://github.com/kjanat/kprint/releases/download/fork%2Fpreview%2B1/kprint-${target}.zip`,
 	]);
+	// kprint is installed as itself and as dprint, upstream's dprint only as dprint
+	expect(fork.location).toEndWith(`kprint${ext}`);
+	expect(await readFile(join(dirname(fork.location), binaryName), "utf8")).toBe("test binary");
+	expect(upstream.location).toEndWith(binaryName);
+	expect(existsSync(join(dirname(upstream.location), `kprint${ext}`))).toBe(false);
 	expect(new Set(binaryKeys).size).toBe(4);
 	for (
 		const { repository, requested } of [
-			{ repository: "kjanat/dprint", requested: tag },
+			{ repository: "kjanat/kprint", requested: tag },
 			{ repository: "dprint/dprint", requested: tag },
-			{ repository: "kjanat/dprint", requested: tag.toUpperCase() },
-			{ repository: "kjanat/dprint", requested: "fork/preview+1" },
+			{ repository: "kjanat/kprint", requested: tag.toUpperCase() },
+			{ repository: "kjanat/kprint", requested: "fork/preview+1" },
 		]
 	) {
 		const cached = await installDprint(requested, true, parseRepository(repository));
 		expect(cached.cacheHit).toBe(true);
 		expect(await readFile(cached.location, "utf8")).toBe("test binary");
 	}
-	expect(downloads.length).toBe(4);
+	expect(downloads.length).toBe(5);
 	const uncached = await installDprint(tag, false);
 	expect(uncached.cacheHit).toBe(false);
-	expect(downloads.length).toBe(5);
+	expect(downloads.length).toBe(6);
 });
 
 test("main controls plugin and binary cache operations independently", async () => {
@@ -177,7 +191,7 @@ test("main controls plugin and binary cache operations independently", async () 
 		expect(warmups.length).toBe(expectedPlugin ? 1 : 0);
 		expect(outputs.get("plugin-cache-hit")).toBe(false);
 		expect(outputs.get("plugin-cache-key")).toEqual(
-			expectedPlugin ? expect.stringContaining("dprint-plugins-kjanat_dprint+") : "",
+			expectedPlugin ? expect.stringContaining("dprint-plugins-kjanat_kprint+") : "",
 		);
 	}
 });
